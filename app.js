@@ -6,10 +6,14 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const motion = { progress: 0 };
 const bones = new Map();
 const rest = new Map();
+const restPositions = new Map();
+const standingQuats = new Map();
+const _tempQuat = new THREE.Quaternion();
 const v = (x, y, z = 0) => new THREE.Vector3(x, y, z);
 const smooth = (a, b, value) => THREE.MathUtils.smoothstep(value, a, b);
 let renderer, character, shadow, timeline, viewWidth, viewHeight, mobile;
 let chapter = -1, soundEnabled = false, greeted = false;
+let mixer, walkAction, walkClip;
 const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-3, 3, 2, -2, .1, 30);
 camera.position.set(0, 1.5, 8);
@@ -43,58 +47,130 @@ function turnWorld(name, axis, angle) {
   bone.updateWorldMatrix(false, true);
 }
 
+function prepareWalkClip(clip) {
+  if (!clip) return null;
+  // Ensure in-place walking by pinning horizontal drift of root tracks, keeping vertical bobbing
+  for (const track of clip.tracks) {
+    if (track.name.endsWith('.position')) {
+      const initialX = track.values[0];
+      const initialZ = track.values[2];
+      let maxDrift = 0;
+      for (let i = 0; i < track.values.length; i += 3) {
+        maxDrift = Math.max(maxDrift, Math.abs(track.values[i] - initialX), Math.abs(track.values[i + 2] - initialZ));
+      }
+      if (maxDrift > 0.05) {
+        for (let i = 0; i < track.values.length; i += 3) {
+          track.values[i] = initialX;
+          track.values[i + 2] = initialZ;
+        }
+      }
+    }
+  }
+  return clip;
+}
+
 function pose(time) {
   const p = motion.progress;
-  const raise = smooth(.13, .32, p);
-  const point = smooth(.57, .78, p);
-  const wave = raise * (1 - point);
-  for (const [name, bone] of bones) bone.quaternion.copy(rest.get(name));
+  const raise = smooth(.13, .28, p) * (1 - smooth(.38, .44, p));
+  const point = smooth(.74, .84, p);
+  const wave = raise;
 
-  character.position.x = THREE.MathUtils.lerp((mobile ? .67 : .70) - .5, (mobile ? .14 : .29) - .5, smooth(.48, .78, p)) * viewWidth;
+  const walkProgress = smooth(.46, .74, p);
+  const walkIn = smooth(.43, .49, p);
+  const walkOut = smooth(.71, .77, p);
+  const walkWeight = walkIn * (1 - walkOut);
+
+  const startX = ((mobile ? .67 : .70) - .5) * viewWidth;
+  const targetX = ((mobile ? .14 : .29) - .5) * viewWidth;
+  character.position.x = THREE.MathUtils.lerp(startX, targetX, walkProgress);
   character.position.y = 1.5 + (.5 - (mobile ? .835 : .80)) * viewHeight;
-  character.rotation.y = -.06 + point * .10;
-  if (!reducedMotion) {
-    turnWorld('spine_03', v(0, 0, 1), Math.sin(time * 1.25) * .006);
-    turnWorld('head', v(0, 0, 1), Math.sin(time * .75) * .014 - wave * .035);
+
+  // Turn to face left when moving, face front-right when standing
+  const turnLeft = smooth(.42, .48, p);
+  const turnFront = smooth(.72, .78, p);
+  const facingLeft = -Math.PI * 0.48;
+  const facingFront = -.06 + point * .10;
+  character.rotation.y = THREE.MathUtils.lerp(
+    THREE.MathUtils.lerp(-.06, facingLeft, turnLeft),
+    facingFront,
+    turnFront
+  );
+
+  // Standing/planted procedural pose
+  if (walkWeight < 0.999) {
+    for (const [name, bone] of bones) {
+      bone.quaternion.copy(rest.get(name));
+      if (restPositions.has(name)) bone.position.copy(restPositions.get(name));
+    }
+
+    if (!reducedMotion) {
+      turnWorld('spine_03', v(0, 0, 1), Math.sin(time * 1.25) * .006 * (1 - walkWeight));
+      turnWorld('head', v(0, 0, 1), (Math.sin(time * .75) * .014 - wave * .035) * (1 - walkWeight));
+    }
+    turnWorld('head', v(0, 1, 0), point * .20);
+
+    aimBone('upperarm_r', 'lowerarm_r', v(-.18, -1, .02));
+    aimBone('lowerarm_r', 'hand_r', v(.07, -1, .16));
+    const upper = v(.18, -1, .02).lerp(v(.83, .08, .06), raise).lerp(mobile ? v(.25, -1, .12) : v(1, -.65, .12), point);
+    const lower = v(-.08, -1, .10).lerp(v(-.06, 1, .14), raise).lerp(v(1, -.24, .05), point);
+    aimBone('upperarm_l', 'lowerarm_l', upper);
+    aimBone('lowerarm_l', 'hand_l', lower);
+    const waving = reducedMotion ? 0 : Math.sin(p * 53) * .27;
+    const handDirection = v(-.03, -1, .04).lerp(v(waving, 1, .08), raise).lerp(v(1, -.24, .03), point);
+    aimBone('hand_l', 'middle_01_l', handDirection);
+    turnWorld('hand_l', handDirection.clone().normalize(), wave * -1.55);
+
+    // Curl the other three fingers for a readable pointing index finger.
+    for (const finger of ['middle', 'ring', 'pinky']) {
+      for (const joint of ['01', '02', '03']) {
+        const bone = bones.get(`${finger}_${joint}_l`);
+        bone.rotateZ(point * (joint === '01' ? .95 : 1.25));
+      }
+    }
+    bones.get('thumb_01_l').rotateZ(point * .32);
+    for (const side of ['l', 'r']) {
+      const relax = side === 'r' ? .18 : .18 * (1 - raise);
+      for (const finger of ['index', 'middle', 'ring', 'pinky']) {
+        bones.get(`${finger}_02_${side}`).rotateZ(relax);
+        bones.get(`${finger}_03_${side}`).rotateZ(relax);
+      }
+    }
+    if (!reducedMotion && wave > .5) bones.get('jaw').rotateZ(Math.max(0, Math.sin(time * 9)) * .025 * wave);
   }
-  turnWorld('head', v(0, 1, 0), point * .20);
 
-  // The source clip is a walk. Keep a planted stance and author the greeting
-  // directly on its original skeleton, without fighting the walking mixer.
-  aimBone('upperarm_r', 'lowerarm_r', v(-.18, -1, .02));
-  aimBone('lowerarm_r', 'hand_r', v(.07, -1, .16));
-  const upper = v(.18, -1, .02).lerp(v(.83, .08, .06), raise).lerp(mobile ? v(.25, -1, .12) : v(1, -.65, .12), point);
-  const lower = v(-.08, -1, .10).lerp(v(-.06, 1, .14), raise).lerp(v(1, -.24, .05), point);
-  aimBone('upperarm_l', 'lowerarm_l', upper);
-  aimBone('lowerarm_l', 'hand_l', lower);
-  const waving = reducedMotion ? 0 : Math.sin(p * 53) * .27;
-  const handDirection = v(-.03, -1, .04).lerp(v(waving, 1, .08), raise).lerp(v(1, -.24, .03), point);
-  aimBone('hand_l', 'middle_01_l', handDirection);
-  turnWorld('hand_l', handDirection.clone().normalize(), wave * -1.55);
+  // Walking animation & smooth blending
+  if (mixer && walkClip && walkWeight > 0.001) {
+    const totalWalkCycles = 2.4;
+    const walkTime = (walkProgress * totalWalkCycles * walkClip.duration) % walkClip.duration;
 
-  // Curl the other three fingers for a readable pointing index finger.
-  for (const finger of ['middle', 'ring', 'pinky']) {
-    for (const joint of ['01', '02', '03']) {
-      const bone = bones.get(`${finger}_${joint}_l`);
-      bone.rotateZ(point * (joint === '01' ? .95 : 1.25));
+    if (walkWeight < 0.999) {
+      // Capture current procedural standing pose
+      for (const [name, bone] of bones) {
+        standingQuats.get(name).copy(bone.quaternion);
+      }
+      // Evaluate walk clip
+      mixer.setTime(walkTime);
+      // Blend bone quaternions and root position between standing pose and walk clip
+      for (const [name, bone] of bones) {
+        _tempQuat.copy(standingQuats.get(name)).slerp(bone.quaternion, walkWeight);
+        bone.quaternion.copy(_tempQuat);
+        if (restPositions.has(name)) {
+          bone.position.lerp(restPositions.get(name), 1 - walkWeight);
+        }
+      }
+    } else {
+      // Pure walking motion
+      mixer.setTime(walkTime);
     }
   }
-  bones.get('thumb_01_l').rotateZ(point * .32);
-  for (const side of ['l', 'r']) {
-    const relax = side === 'r' ? .18 : .18 * (1 - raise);
-    for (const finger of ['index', 'middle', 'ring', 'pinky']) {
-      bones.get(`${finger}_02_${side}`).rotateZ(relax);
-      bones.get(`${finger}_03_${side}`).rotateZ(relax);
-    }
-  }
-  if (!reducedMotion && wave > .5) bones.get('jaw').rotateZ(Math.max(0, Math.sin(time * 9)) * .025 * wave);
+
   character.updateMatrixWorld(true);
   shadow.position.set(character.position.x, character.position.y - .016, -.30);
   updateUI(p);
 }
 
 function updateUI(p) {
-  const next = p < .23 ? 0 : p < .66 ? 1 : 2;
+  const next = p < .23 ? 0 : p < .70 ? 1 : 2;
   if (next !== chapter) {
     chapter = next;
     document.querySelectorAll('[data-step]').forEach((button, i) => {
@@ -114,15 +190,16 @@ function updateUI(p) {
   $('#greeting').setAttribute('aria-hidden', String(chapter !== 1));
   $('#intro').inert = p > .22;
   $('#intro').setAttribute('aria-hidden', String(p > .22));
-  const speechOpacity = smooth(.24, .30, p) * (1 - smooth(.53, .59, p)) + smooth(.75, .81, p);
+  const speechOpacity = smooth(.24, .30, p) * (1 - smooth(.40, .46, p)) + smooth(.75, .81, p);
   $('#speech').style.opacity = speechOpacity;
   $('#speech').style.visibility = speechOpacity > .01 ? 'visible' : 'hidden';
   // Anchor the speech to the actual head, so it follows every screen size.
   const head = bones.get('head').getWorldPosition(v(0, 0)).project(camera);
   $('#speech').style.left = `${(head.x * .5 + .5) * 100 + (mobile ? 2 : 3)}%`;
   $('#speech').style.top = `${(-head.y * .5 + .5) * 100 - 8}%`;
-  $('.character-label').style.left = `${THREE.MathUtils.lerp(mobile ? 67 : 70, mobile ? 18 : 29, smooth(.48, .78, p))}%`;
-  $('.character-label').style.opacity = mobile ? 1 - smooth(.48, .78, p) : 1;
+  const walkProgress = smooth(.46, .74, p);
+  $('.character-label').style.left = `${THREE.MathUtils.lerp(mobile ? 67 : 70, mobile ? 18 : 29, walkProgress)}%`;
+  $('.character-label').style.opacity = mobile ? 1 - walkProgress : 1;
 }
 
 function speak(text) {
@@ -160,19 +237,19 @@ function makeTimeline() {
     .to('#progress', { scaleX: 1, duration: 1, ease: 'none' }, 0)
     .to('#intro', { autoAlpha: 0, y: reducedMotion ? 0 : -24, duration: .12 }, .11)
     .to('.backdrop-word', { opacity: .45, xPercent: -15, duration: .6 }, .16)
-    .to('#greeting', { autoAlpha: 1, y: 0, duration: .1 }, .26)
-    .to('#greeting', { autoAlpha: 0, y: reducedMotion ? 0 : -20, duration: .1 }, .51)
-    .to('#message', { autoAlpha: 1, y: 0, rotate: 0, duration: .19, ease: 'power2.out' }, .64);
+    .to('#greeting', { autoAlpha: 1, y: 0, duration: .1 }, .24)
+    .to('#greeting', { autoAlpha: 0, y: reducedMotion ? 0 : -20, duration: .1 }, .40)
+    .to('#message', { autoAlpha: 1, y: 0, rotate: 0, duration: .19, ease: 'power2.out' }, .68);
 }
 
 function goTo(progress) {
   const distance = $('#experience').offsetHeight - innerHeight;
   window.scrollTo({ top: Math.max(0, distance * progress), behavior: reducedMotion ? 'instant' : 'smooth' });
 }
-$('#begin').addEventListener('click', () => goTo(.40));
+$('#begin').addEventListener('click', () => goTo(.32));
 $('#replay').addEventListener('click', () => goTo(0));
 $('.brand').addEventListener('click', (event) => { event.preventDefault(); goTo(0); });
-document.querySelectorAll('[data-step]').forEach(button => button.addEventListener('click', () => goTo([0, .40, 1][Number(button.dataset.step)])));
+document.querySelectorAll('[data-step]').forEach(button => button.addEventListener('click', () => goTo([0, .32, 1][Number(button.dataset.step)])));
 $('#sound').addEventListener('click', () => {
   if (!('speechSynthesis' in window)) {
     $('#sound span').textContent = 'Voice unavailable';
@@ -207,12 +284,21 @@ async function init() {
     character.traverse(object => {
       if (object.isBone) {
         const name = object.name.replace('rp_nathan_animated_003_walking_', '');
-        bones.set(name, object); rest.set(name, object.quaternion.clone());
+        bones.set(name, object);
+        rest.set(name, object.quaternion.clone());
+        restPositions.set(name, object.position.clone());
+        standingQuats.set(name, new THREE.Quaternion());
       }
       if (object.isMesh) { object.frustumCulled = false; }
     });
     for (const name of ['head', 'jaw', 'upperarm_l', 'lowerarm_l', 'hand_l', 'upperarm_r', 'lowerarm_r', 'hand_r']) {
       if (!bones.has(name)) throw new Error(`The character skeleton is missing ${name}. Restore the supplied Nathan GLB.`);
+    }
+    if (gltf.animations && gltf.animations.length > 0) {
+      walkClip = prepareWalkClip(gltf.animations[0]);
+      mixer = new THREE.AnimationMixer(character);
+      walkAction = mixer.clipAction(walkClip);
+      walkAction.play();
     }
     character.userData.originalHeight = new THREE.Box3().setFromObject(character).getSize(v(0, 0)).y;
     scene.add(character);
