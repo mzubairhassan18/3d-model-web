@@ -18,4 +18,4 @@ http.createServer(async (req, res) => {
     if (req.method === 'HEAD') res.end();
     else createReadStream(file).pipe(res);
   } catch { res.writeHead(404).end('Not found'); }
-}).listen(port, '127.0.0.1', () => console.log(`Hello Nathan is ready at http://localhost:${port}`));
+}).listen(port, '127.0.0.1', () => console.log(`Muhammad Zubair portfolio is ready at http://localhost:${port}`));

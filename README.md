@@ -1,24 +1,16 @@
-# 3d-model-web
+# Muhammad Zubair — 3D Interactive Portfolio
 
-## Hello, Nathan
+A bespoke 3D interactive portfolio experience built with Three.js and GSAP ScrollTrigger for **Muhammad Zubair (M Zubair Ul Hassan)**, Senior Frontend Engineer with 8+ years experience.
 
-A plain HTML, CSS, and JavaScript scroll experience using Three.js and GSAP ScrollTrigger, built around the supplied Nathan GLB.
+## Features
+- **3D Character Choreography**: Zubair waves hello, turns and walks to the left side, points to his summary card, performs a dramatic jump down into the experience arena, and demonstrates 4 detailed career milestones with pointing and celebratory "yeah moment" gestures.
+- **Milestone Showcase**:
+  1. **USTAFF360** (Sep 2024 – Present) — Senior Frontend Developer (Healthcare product, 50,000+ daily users, Recoil & Redux).
+  2. **Center for Advanced Research in Engineering (CARE)** (Sep 2023 – Jul 2024) — Senior Frontend Developer (15+ core modules, responsive mobile-first UI).
+  3. **Embrace-It** (Jan 2022 – Mar 2023) — Frontend Engineer (AngularJS to React 17 migration, TypeScript, TDD, PWA).
+  4. **CARE** (Sep 2018 – Dec 2022) — Senior Design Engineer (Joget workflow apps, Kendo UI, Linux).
+  5. **Education & Connect** — BS in Software Engineering (IIUI), GitHub, Portfolio, and Email.
+- **Voice Greeting**: Optional spoken synthesis and dynamic speech captions.
 
 ## Run
-
-With Node.js installed, run `node server.mjs` (or `npm start`) from this folder, then open **http://localhost:3000**. Use a local HTTP server, rather than opening the HTML directly, so the browser can load JavaScript modules and the GLB.
-
-Scroll down to raise Nathan’s hand, see him say **Hi!**, and watch him point at the message card. Scrolling up reverses the sequence. The chapter buttons jump between stages; Replay returns to the beginning. Enable **Sound on** for an optional spoken greeting using your browser’s speech synthesis.
-
-## Customize
-
-- **Message:** edit the `#message` section in `index.html`.
-- **Appearance and responsive layout:** edit `styles.css`.
-- **Gesture timing and poses:** edit `pose()` and `makeTimeline()` in `app.js`. Timeline positions range from 0 to 1.
-- **Character:** `assets/nathan.glb` is a copy of the supplied model. The procedural animation targets its named skeleton; other models need a bone-name/pose adjustment.
-
-The model includes a walking clip. This experience intentionally uses its original skeleton to create a planted greeting, wave, and pointing pose, with the other fingers curled around an extended index finger. No external animation files are required. Speech uses a caption and optional synthesized voice, with a subtle jaw motion rather than phoneme-based lip sync.
-
-Three.js 0.180.0 and GSAP 3.13.0 are vendored locally. The optional Google Fonts stylesheet falls back to system sans-serif when offline. Three.js license is in `vendor/three/LICENSE`; GSAP licensing: https://gsap.com/standard-license/. The character retains its source asset’s licensing terms.
-
-The layout adapts to mobile screens. Reduced-motion preferences disable idle motion and scroll smoothing. The text remains available in HTML, with keyboard-operable chapter controls and a visible loading/error state.
+Run `node server.mjs` (or `npm start`), then open **http://localhost:3000**.

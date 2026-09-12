@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f4f2ed">
-  <meta name="description" content="A little scroll, a human hello. Meet Nathan in an interactive 3D experience.">
-  <title>Hello, Nathan — A scroll encounter</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23ee6849'/%3E%3Ctext x='9' y='29' font-size='28' fill='white'%3Eh%3C/text%3E%3C/svg%3E">
+  <meta name="description" content="Muhammad Zubair — Senior Frontend Engineer with 8+ years experience in React, TypeScript, Next.js, and Design Systems.">
+  <title>Muhammad Zubair — Senior Frontend Engineer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23ee6849'/%3E%3Ctext x='11' y='29' font-size='26' font-weight='bold' fill='white'%3EZ%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
   <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
   <script src="vendor/gsap.min.js" defer></script>
@@ -14,52 +14,147 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-  <main id="experience" aria-label="Scroll to meet Nathan, see him wave, and reveal a message">
+  <main id="experience" aria-label="Scroll to meet Muhammad Zubair, see him walk, jump, and present his enterprise software experience">
     <div class="stage">
       <header class="header">
-        <a class="brand" href="#" aria-label="Hello Nathan, back to start"><span class="brand-icon">h<span>·</span></span> hello, nathan<span class="brand-dot">®</span></a>
-        <span class="header-note">A SMALL MOMENT OF CONNECTION</span>
+        <a class="brand" href="#" aria-label="Muhammad Zubair, back to start"><span class="brand-icon">z<span>·</span></span> zubair<span class="brand-dot">®</span></a>
+        <span class="header-note">SENIOR FRONTEND ENGINEER · 8+ YEARS EXP</span>
         <button class="sound-button" id="sound" aria-pressed="false" aria-label="Enable voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path class="sound-waves" d="M15 8c2 2 2 6 0 8m3-11c4 4 4 10 0 14"/><path class="sound-mute" d="m16 9 5 6m0-6-5 6"/></svg><span>Sound off</span></button>
       </header>
 
-      <div class="backdrop-word" aria-hidden="true">hello.</div>
-      <div id="scene" role="img" aria-label="Nathan, a 3D human character who raises his hand to wave and points to the message as you scroll"></div>
+      <div class="backdrop-word" aria-hidden="true">zubair.</div>
+      <div id="scene" role="img" aria-label="Muhammad Zubair, a 3D character demonstrating frontend engineering experience as you scroll"></div>
       <div class="scene-grain" aria-hidden="true"></div>
 
       <section class="intro" id="intro">
-        <p class="eyebrow"><span></span> NOT JUST ANOTHER HELLO</p>
-        <h1>A little scroll.<br>A human <em>hello.</em></h1>
-        <p class="intro-copy">Meet Nathan. A familiar face in a digital world.<br> Keep scrolling. He has something to show you.</p>
-        <button class="round-link" id="begin"><span class="circle-arrow">↓</span><span>Let’s meet</span></button>
+        <p class="eyebrow"><span></span> SENIOR FRONTEND ENGINEER</p>
+        <h1>Hi, I’m <em>Zubair.</em><br>Building modern web.</h1>
+        <p class="intro-copy">Specialized in React, TypeScript, Next.js, and design systems.<br>8+ years crafting scalable enterprise web apps for 50k+ daily users.</p>
+        <button class="round-link" id="begin"><span class="circle-arrow">↓</span><span>Explore Work</span></button>
       </section>
 
-      <div class="character-label"><span class="live-dot"></span> NATHAN <span class="label-divider">/</span> YOUR FRIENDLY GUIDE</div>
-      <div class="greeting" id="greeting" aria-hidden="true"><span class="greeting-hand">✳</span><div>Oh, hey you!<small>Good to see you here.</small></div></div>
+      <div class="character-label"><span class="live-dot"></span> MUHAMMAD ZUBAIR <span class="label-divider">/</span> SR. FRONTEND ENGINEER</div>
+      <div class="greeting" id="greeting" aria-hidden="true"><span class="greeting-hand">✳</span><div>Hey there!<small>I’m Muhammad Zubair.</small></div></div>
 
       <section class="message" id="message" aria-hidden="true" inert>
-        <div class="card-top"><span class="eyebrow">A LITTLE SOMETHING FOR YOU</span><span class="card-spark">✳</span></div>
-        <h2>Good things<br>start with <em>hello.</em></h2>
-        <p>A simple gesture. A new connection. A world of possibilities. Let’s make something worth stopping for.</p>
-        <div class="card-bottom"><span>Glad you’re here.</span><span class="card-arrow">↗</span></div>
+        <div class="card-top"><span class="eyebrow">ABOUT MUHAMMAD ZUBAIR</span><span class="card-spark">✳</span></div>
+        <h2>Crafting scalable<br><em>enterprise UIs.</em></h2>
+        <p>Proven track record of improving web performance by up to 35%, leading UI modernization, and building accessible (WCAG), responsive solutions for healthcare & enterprise domains.</p>
+        <div class="skills-tags">
+          <span>React</span><span>Next.js</span><span>TypeScript</span><span>Redux</span><span>Design Systems</span><span>WCAG</span>
+        </div>
+        <div class="card-bottom"><span>Scroll to see experience</span><span class="card-arrow">↓</span></div>
       </section>
+
+      <!-- Experience Section Cards revealed sequentially as Zubair points & celebrates -->
+      <div class="experience-deck" id="experience-deck" aria-hidden="true" inert>
+        
+        <!-- Experience 1: USTAFF360 -->
+        <article class="exp-card" id="exp-1" data-exp="0">
+          <div class="exp-header">
+            <span class="exp-badge">Sep 2024 – Present</span>
+            <span class="exp-company">USTAFF360</span>
+          </div>
+          <h3 class="exp-role">Senior Frontend Developer</h3>
+          <ul class="exp-bullets">
+            <li><span class="bullet-dot"></span><span class="exp-text">Built React-based UIs for enterprise healthcare product, improving usability for 50,000+ daily users.</span></li>
+            <li><span class="bullet-dot"></span><span class="exp-text">Implemented modern state management (Recoil, Redux), reducing code complexity by 30%.</span></li>
+            <li><span class="bullet-dot"></span><span class="exp-text">Collaborated with designers/devs to deliver responsive, reusable, and accessible components.</span></li>
+          </ul>
+          <div class="exp-tech-tags">
+            <span>React</span><span>Recoil</span><span>Redux</span><span>TypeScript</span><span>Healthcare</span><span>Design Systems</span>
+          </div>
+        </article>
+
+        <!-- Experience 2: CARE -->
+        <article class="exp-card" id="exp-2" data-exp="1">
+          <div class="exp-header">
+            <span class="exp-badge">Sep 2023 – Jul 2024</span>
+            <span class="exp-company">Center for Advanced Research in Engineering (CARE)</span>
+          </div>
+          <h3 class="exp-role">Senior Frontend Developer</h3>
+          <ul class="exp-bullets">
+            <li><span class="bullet-dot"></span><span class="exp-text">Redesigned login, navigation, and notification systems, enhancing UI/UX across 15+ core modules.</span></li>
+            <li><span class="bullet-dot"></span><span class="exp-text">Created responsive, mobile-first designs with HTML/CSS/LESS/JS integrated with Java backend.</span></li>
+            <li><span class="bullet-dot"></span><span class="exp-text">Delivered a new enterprise theme used across multiple client projects.</span></li>
+          </ul>
+          <div class="exp-tech-tags">
+            <span>JavaScript (ES6+)</span><span>LESS/CSS3</span><span>Java Integration</span><span>Enterprise Themes</span><span>UI/UX</span>
+          </div>
+        </article>
+
+        <!-- Experience 3: Embrace-It -->
+        <article class="exp-card" id="exp-3" data-exp="2">
+          <div class="exp-header">
+            <span class="exp-badge">Jan 2022 – Mar 2023</span>
+            <span class="exp-company">Embrace-It</span>
+          </div>
+          <h3 class="exp-role">Frontend Engineer</h3>
+          <ul class="exp-bullets">
+            <li><span class="bullet-dot"></span><span class="exp-text">Migrated platform from AngularJS to React 17, reducing tech debt by 40%.</span></li>
+            <li><span class="bullet-dot"></span><span class="exp-text">Converted JS codebase to TypeScript and adopted TDD, increasing code quality and reducing bugs.</span></li>
+            <li><span class="bullet-dot"></span><span class="exp-text">Maintained PWA mobile version with feature parity.</span></li>
+          </ul>
+          <div class="exp-tech-tags">
+            <span>React 17</span><span>TypeScript</span><span>AngularJS Migration</span><span>TDD</span><span>Jest / RTL</span><span>PWA</span>
+          </div>
+        </article>
+
+        <!-- Experience 4: CARE (Joget) -->
+        <article class="exp-card" id="exp-4" data-exp="3">
+          <div class="exp-header">
+            <span class="exp-badge">Sep 2018 – Dec 2022</span>
+            <span class="exp-company">CARE</span>
+          </div>
+          <h3 class="exp-role">Senior Design Engineer</h3>
+          <ul class="exp-bullets">
+            <li><span class="bullet-dot"></span><span class="exp-text">Built apps/themes for Joget platform with custom JS, CSS, and Kendo UI integrations.</span></li>
+            <li><span class="bullet-dot"></span><span class="exp-text">Managed Joget core installations on Linux servers and user access configurations.</span></li>
+            <li><span class="bullet-dot"></span><span class="exp-text">Improved logistics/IT workflows by translating requirements into production-ready apps.</span></li>
+          </ul>
+          <div class="exp-tech-tags">
+            <span>Joget Platform</span><span>Kendo UI</span><span>Linux Admin</span><span>Workflow Apps</span><span>Enterprise UI</span>
+          </div>
+        </article>
+
+        <!-- Final Card: Education & Connect -->
+        <article class="exp-card exp-card-contact" id="exp-5" data-exp="4">
+          <div class="exp-header">
+            <span class="exp-badge">Education & Connect</span>
+            <span class="exp-company">International Islamic University Islamabad (2013–2018)</span>
+          </div>
+          <h3 class="exp-role">BS in Software Engineering</h3>
+          <p class="exp-summary">Looking for a Senior Frontend Engineer to lead UI modernization or deliver enterprise-scale applications? Let’s connect.</p>
+          <div class="contact-links">
+            <a href="mailto:mzubairhassan18@gmail.com" class="contact-pill" target="_blank" rel="noopener"><span>✉</span> mzubairhassan18@gmail.com</a>
+            <a href="https://github.com/mzubairhassan18" class="contact-pill" target="_blank" rel="noopener"><span>⌥</span> GitHub</a>
+            <a href="https://mzubairhassan18.github.io/portfolio/" class="contact-pill" target="_blank" rel="noopener"><span>↗</span> Portfolio</a>
+            <span class="contact-pill location-pill"><span>📍</span> Islamabad, Pakistan (Remote)</span>
+          </div>
+        </article>
+
+      </div>
+
       <div class="speech" id="speech" role="status" aria-live="polite"></div>
 
       <footer class="footer">
-        <div class="scroll-cue"><span class="mouse"><span></span></span><span id="scroll-label">SCROLL TO SAY HELLO</span></div>
+        <div class="scroll-cue"><span class="mouse"><span></span></span><span id="scroll-label">SCROLL TO MEET ZUBAIR</span></div>
         <nav class="chapters" aria-label="Experience chapters">
-          <button data-step="0" class="active" aria-current="step"><span>01</span> Meet Nathan</button>
+          <button data-step="0" class="active" aria-current="step"><span>01</span> Meet Zubair</button>
           <span class="chapter-line"></span>
-          <button data-step="1"><span>02</span> Say hello</button>
+          <button data-step="1"><span>02</span> About</button>
           <span class="chapter-line"></span>
-          <button data-step="2"><span>03</span> A little message</button>
+          <button data-step="2"><span>03</span> Experience</button>
+          <span class="chapter-line"></span>
+          <button data-step="3"><span>04</span> Connect</button>
         </nav>
         <button class="replay" id="replay" aria-label="Replay from the beginning">Replay <span>↺</span></button>
       </footer>
       <div class="progress-track"><div id="progress"></div></div>
-      <div class="loader" id="loader" role="status"><span class="loader-mark">h<span>·</span></span><p id="load-text">Getting Nathan ready…</p><div class="loading-track"><span id="load-progress"></span></div></div>
+      <div class="loader" id="loader" role="status"><span class="loader-mark">z<span>·</span></span><p id="load-text">Getting Zubair ready…</p><div class="loading-track"><span id="load-progress"></span></div></div>
       <div class="error" id="error" role="alert" hidden><h2>A small interruption.</h2><p id="error-text"></p><button onclick="location.reload()">Try again ↻</button></div>
     </div>
   </main>
-  <noscript><div class="no-js">Please enable JavaScript to meet Nathan.</div></noscript>
+  <noscript><div class="no-js">Please enable JavaScript to view Muhammad Zubair's portfolio.</div></noscript>
 </body>
 </html>
