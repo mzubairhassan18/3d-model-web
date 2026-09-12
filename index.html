@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f2ed">
+  <meta name="description" content="A little scroll, a human hello. Meet Nathan in an interactive 3D experience.">
+  <title>Hello, Nathan — A scroll encounter</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23ee6849'/%3E%3Ctext x='9' y='29' font-size='28' fill='white'%3Eh%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
+  <script src="vendor/gsap.min.js" defer></script>
+  <script src="vendor/ScrollTrigger.min.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main id="experience" aria-label="Scroll to meet Nathan, see him wave, and reveal a message">
+    <div class="stage">
+      <header class="header">
+        <a class="brand" href="#" aria-label="Hello Nathan, back to start"><span class="brand-icon">h<span>·</span></span> hello, nathan<span class="brand-dot">®</span></a>
+        <span class="header-note">A SMALL MOMENT OF CONNECTION</span>
+        <button class="sound-button" id="sound" aria-pressed="false" aria-label="Enable voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path class="sound-waves" d="M15 8c2 2 2 6 0 8m3-11c4 4 4 10 0 14"/><path class="sound-mute" d="m16 9 5 6m0-6-5 6"/></svg><span>Sound off</span></button>
+      </header>
+
+      <div class="backdrop-word" aria-hidden="true">hello.</div>
+      <div id="scene" role="img" aria-label="Nathan, a 3D human character who raises his hand to wave and points to the message as you scroll"></div>
+      <div class="scene-grain" aria-hidden="true"></div>
+
+      <section class="intro" id="intro">
+        <p class="eyebrow"><span></span> NOT JUST ANOTHER HELLO</p>
+        <h1>A little scroll.<br>A human <em>hello.</em></h1>
+        <p class="intro-copy">Meet Nathan. A familiar face in a digital world.<br> Keep scrolling. He has something to show you.</p>
+        <button class="round-link" id="begin"><span class="circle-arrow">↓</span><span>Let’s meet</span></button>
+      </section>
+
+      <div class="character-label"><span class="live-dot"></span> NATHAN <span class="label-divider">/</span> YOUR FRIENDLY GUIDE</div>
+      <div class="greeting" id="greeting" aria-hidden="true"><span class="greeting-hand">✳</span><div>Oh, hey you!<small>Good to see you here.</small></div></div>
+
+      <section class="message" id="message" aria-hidden="true" inert>
+        <div class="card-top"><span class="eyebrow">A LITTLE SOMETHING FOR YOU</span><span class="card-spark">✳</span></div>
+        <h2>Good things<br>start with <em>hello.</em></h2>
+        <p>A simple gesture. A new connection. A world of possibilities. Let’s make something worth stopping for.</p>
+        <div class="card-bottom"><span>Glad you’re here.</span><span class="card-arrow">↗</span></div>
+      </section>
+      <div class="speech" id="speech" role="status" aria-live="polite"></div>
+
+      <footer class="footer">
+        <div class="scroll-cue"><span class="mouse"><span></span></span><span id="scroll-label">SCROLL TO SAY HELLO</span></div>
+        <nav class="chapters" aria-label="Experience chapters">
+          <button data-step="0" class="active" aria-current="step"><span>01</span> Meet Nathan</button>
+          <span class="chapter-line"></span>
+          <button data-step="1"><span>02</span> Say hello</button>
+          <span class="chapter-line"></span>
+          <button data-step="2"><span>03</span> A little message</button>
+        </nav>
+        <button class="replay" id="replay" aria-label="Replay from the beginning">Replay <span>↺</span></button>
+      </footer>
+      <div class="progress-track"><div id="progress"></div></div>
+      <div class="loader" id="loader" role="status"><span class="loader-mark">h<span>·</span></span><p id="load-text">Getting Nathan ready…</p><div class="loading-track"><span id="load-progress"></span></div></div>
+      <div class="error" id="error" role="alert" hidden><h2>A small interruption.</h2><p id="error-text"></p><button onclick="location.reload()">Try again ↻</button></div>
+    </div>
+  </main>
+  <noscript><div class="no-js">Please enable JavaScript to meet Nathan.</div></noscript>
+</body>
+</html>
