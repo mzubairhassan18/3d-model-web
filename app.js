@@ -25,6 +25,105 @@ function readingProgress(index, progress) {
   const [start, end] = readingWindows[index];
   return THREE.MathUtils.clamp((progress - start) / (end - start), 0, 1);
 }
+
+const COMPANY_THEMES = [
+  {
+    name: 'truey',
+    primary: '#7c3aed',         // Electric Violet
+    secondary: '#a855f7',       // Bright Purple
+    darkBg: '#1e1035',
+    accentLight: '#f3e8ff',
+    badgeBg: '#7c3aed',
+    badgeText: '#ffffff',
+    bulletDot: '#8b5cf6',
+    tagBg: '#ede9fe',
+    tagText: '#5b21b6',
+    glowBeam: 'linear-gradient(180deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%)',
+    speechBg: '#7c3aed',
+    speechColor: '#ffffff',
+    confetti: ['#7c3aed', '#a855f7', '#c084fc', '#ffffff', '#ec4899'],
+  },
+  {
+    name: 'ustaff',
+    primary: '#0284c7',         // Cobalt / Sky Blue
+    secondary: '#e11d48',       // Crimson Red from the 'U'
+    darkBg: '#0f172a',
+    accentLight: '#e0f2fe',
+    badgeBg: 'linear-gradient(135deg, #e11d48 0%, #0284c7 100%)',
+    badgeText: '#ffffff',
+    bulletDot: '#0284c7',
+    tagBg: '#e0f2fe',
+    tagText: '#0369a1',
+    glowBeam: 'linear-gradient(180deg, #e11d48 0%, #0284c7 50%, #38bdf8 100%)',
+    speechBg: '#0284c7',
+    speechColor: '#ffffff',
+    confetti: ['#e11d48', '#0284c7', '#38bdf8', '#ffffff', '#f59e0b'],
+  },
+  {
+    name: 'care',
+    primary: '#0891b2',         // Deep Teal / Cyan
+    secondary: '#06b6d4',       // Light Electric Cyan
+    darkBg: '#083344',
+    accentLight: '#cffafe',
+    badgeBg: '#0891b2',
+    badgeText: '#ffffff',
+    bulletDot: '#06b6d4',
+    tagBg: '#cffafe',
+    tagText: '#155e75',
+    glowBeam: 'linear-gradient(180deg, #0e7490 0%, #0891b2 50%, #06b6d4 100%)',
+    speechBg: '#0891b2',
+    speechColor: '#ffffff',
+    confetti: ['#0891b2', '#06b6d4', '#22d3ee', '#ffffff', '#67e8f9'],
+  },
+  {
+    name: 'embrace',
+    primary: '#0d9488',         // Aquamarine / Turquoise
+    secondary: '#14b8a6',       // Vivid Teal
+    darkBg: '#132e35',
+    accentLight: '#ccfbf1',
+    badgeBg: 'linear-gradient(135deg, #132e35 0%, #0d9488 100%)',
+    badgeText: '#ffffff',
+    bulletDot: '#14b8a6',
+    tagBg: '#ccfbf1',
+    tagText: '#115e59',
+    glowBeam: 'linear-gradient(180deg, #132e35 0%, #0d9488 50%, #2dd4bf 100%)',
+    speechBg: '#0d9488',
+    speechColor: '#ffffff',
+    confetti: ['#0d9488', '#14b8a6', '#2dd4bf', '#ffffff', '#1e293b'],
+  },
+  {
+    name: 'care_joget',
+    primary: '#2563eb',         // Enterprise Royal Blue
+    secondary: '#0284c7',       // Cyan Blue
+    darkBg: '#1e293b',
+    accentLight: '#dbeafe',
+    badgeBg: '#2563eb',
+    badgeText: '#ffffff',
+    bulletDot: '#2563eb',
+    tagBg: '#dbeafe',
+    tagText: '#1e40af',
+    glowBeam: 'linear-gradient(180deg, #1d4ed8 0%, #2563eb 50%, #38bdf8 100%)',
+    speechBg: '#2563eb',
+    speechColor: '#ffffff',
+    confetti: ['#2563eb', '#38bdf8', '#60a5fa', '#ffffff', '#1d4ed8'],
+  },
+  {
+    name: 'connect',
+    primary: '#ee6849',         // Warm Brand Coral
+    secondary: '#f59e0b',       // Amber
+    darkBg: '#291811',
+    accentLight: '#ffedd5',
+    badgeBg: '#ee6849',
+    badgeText: '#ffffff',
+    bulletDot: '#ee6849',
+    tagBg: '#ffedd5',
+    tagText: '#9a3412',
+    glowBeam: 'linear-gradient(180deg, #ee6849 0%, #f59e0b 100%)',
+    speechBg: '#ee6849',
+    speechColor: '#ffffff',
+    confetti: ['#ee6849', '#f59e0b', '#849e65', '#ffffff', '#38bdf8'],
+  }
+];
 const raycaster = new THREE.Raycaster();
 let hitMesh = null, lastFrameTime = 0;
 
@@ -863,8 +962,12 @@ function pose(time) {
         pen.visible = false;
       }
     }
+
+    // Dynamic Hand Energy Orb that casts the experience content to the card
+    updateHandEnergyOrb(p, activeIdx, isCardOnRight, time);
   } else {
     if (pen) pen.visible = false;
+    updateHandEnergyOrb(p, -1, false, time);
   }
 
   // Apply living human idle motions (weight shifting, head gaze, breathing, arm float)
@@ -934,16 +1037,18 @@ function updateUI(p) {
   else if (p >= .83 && p < .93) activeExp = 4; // CARE Joget
   else if (p >= .93) activeExp = 5;            // Connect
 
-  // Alternate Experience deck between right and left sides
+  // Alternate Experience deck between right, left, and center (for final connect card)
   const deck = $('#experience-deck');
   if (deck) {
-    deck.classList.toggle('pos-center', activeExp === 5);
-    if (activeExp === 1 || activeExp === 3) {
+    if (activeExp === 5) {
+      deck.classList.add('pos-center');
+      deck.classList.remove('pos-left', 'pos-right');
+    } else if (activeExp === 1 || activeExp === 3) {
       deck.classList.add('pos-left');
-      deck.classList.remove('pos-right');
+      deck.classList.remove('pos-right', 'pos-center');
     } else {
       deck.classList.add('pos-right');
-      deck.classList.remove('pos-left');
+      deck.classList.remove('pos-left', 'pos-center');
     }
   }
 
@@ -964,6 +1069,29 @@ function updateUI(p) {
       card.setAttribute('aria-hidden', 'true');
     }
   });
+
+  // Dynamic company theme colors derived from official logos
+  const theme = (activeExp >= 0 && activeExp <= 5) ? COMPANY_THEMES[activeExp] : COMPANY_THEMES[5];
+  document.documentElement.style.setProperty('--card-accent', theme.primary);
+  document.documentElement.style.setProperty('--card-secondary', theme.secondary);
+
+  // Apply colors to active card elements (date badge, bullet dots, tech tags)
+  if (activeExp >= 0 && activeExp <= 5) {
+    const activeCard = cards[activeExp];
+    if (activeCard) {
+      const badge = activeCard.querySelector('.exp-badge');
+      if (badge) badge.style.background = theme.badgeBg;
+
+      const dots = activeCard.querySelectorAll('.bullet-dot');
+      dots.forEach(dot => dot.style.background = theme.bulletDot);
+
+      const tags = activeCard.querySelectorAll('.exp-tech-tags span');
+      tags.forEach(tag => {
+        tag.style.background = theme.tagBg;
+        tag.style.color = theme.tagText;
+      });
+    }
+  }
 
   // Paused GSAP timelines follow scroll in either direction, never elapsed time.
   cardReveals.forEach((reveal, index) => {
@@ -995,17 +1123,30 @@ function updateUI(p) {
     lastConfettiCard = -1;
   }
 
-  // Glowing vertical timeline beam tracker
+  // Glowing vertical timeline beam tracker with dynamic company colors
   const glowTrack = $('#timeline-glow-track');
   const glowBeam = $('#timeline-glow-beam');
   if (glowTrack && glowBeam) {
-    if (p >= 0.41 && p <= 0.94) {
+    if (p >= 0.41 && p < 0.93) {
       glowTrack.classList.add('active');
-      const lineProgress = smooth(0.43, 0.92, p);
+      const lineProgress = smooth(0.43, 0.91, p);
       glowBeam.style.height = `${lineProgress * 100}%`;
+      glowBeam.style.background = theme.glowBeam;
+      glowBeam.style.boxShadow = `0 0 14px ${theme.primary}, 0 0 28px ${theme.secondary}88`;
+      const orb = glowBeam.querySelector('.timeline-glow-orb');
+      if (orb) {
+        orb.style.borderColor = theme.primary;
+        orb.style.boxShadow = `0 0 14px ${theme.primary}, 0 0 24px ${theme.secondary}`;
+      }
     } else {
       glowTrack.classList.remove('active');
     }
+  }
+
+  // Bottom progress bar
+  const progressEl = $('#progress');
+  if (progressEl) {
+    progressEl.style.background = (activeExp >= 0 && activeExp <= 5) ? theme.primary : 'var(--accent)';
   }
 
   // Dynamic Speech bubble text & visibility
@@ -1059,6 +1200,17 @@ function updateUI(p) {
   $('#speech').style.opacity = speechOpacity;
   $('#speech').style.visibility = speechOpacity > .01 ? 'visible' : 'hidden';
 
+  // Apply matching brand color to speech bubble
+  if (activeExp >= 0 && activeExp <= 5 && speechOpacity > 0.01) {
+    $('#speech').style.background = theme.speechBg;
+    $('#speech').style.color = theme.speechColor;
+    $('#speech').style.boxShadow = `0 6px 22px ${theme.primary}55`;
+  } else {
+    $('#speech').style.background = '';
+    $('#speech').style.color = '';
+    $('#speech').style.boxShadow = '';
+  }
+
   // Anchor speech to head position safely
   const headBone = getBone('head');
   if (headBone) {
@@ -1067,15 +1219,15 @@ function updateUI(p) {
     $('#speech').style.top = `${(-head.y * .5 + .5) * 100 - 8}%`;
   }
 
-  // Keep the final panel below the shoulders, aligned with the centered model.
+  // Keep the final BS Software Engineering panel below shoulders, centered with Zubair's head and shoulders visible above
   if (activeExp === 5) {
     const shoulder = getBone('spine_03');
     if (shoulder) {
       const projected = shoulder.getWorldPosition(v(0, 0)).project(camera);
       const stageHeight = $('#scene').clientHeight;
       const cardHeight = $('#exp-6').offsetHeight;
-      const shoulderY = (-projected.y * .5 + .5) * stageHeight + 22;
-      deck.style.setProperty('--connect-top', `${Math.min(shoulderY, stageHeight - cardHeight - 88)}px`);
+      const shoulderY = (-projected.y * .5 + .5) * stageHeight + (mobile ? 48 : 82);
+      deck.style.setProperty('--connect-top', `${Math.min(shoulderY, stageHeight - cardHeight - 35)}px`);
     }
   }
   $('#speech').classList.toggle('connect-speech', activeExp === 5);
@@ -1317,17 +1469,76 @@ function initInteractions() {
   window.addEventListener('pointerleave', onPointerLeave, { passive: true });
 }
 
+function updateHandEnergyOrb(p, cardIndex, isCardOnRight, time) {
+  const orbEl = $('#hand-energy-orb');
+  if (!orbEl) return;
+
+  if (p < 0.43 || p >= 0.93 || cardIndex < 0 || cardIndex > 4) {
+    orbEl.style.opacity = '0';
+    orbEl.style.visibility = 'hidden';
+    return;
+  }
+
+  const u = readingProgress(cardIndex, p);
+  // Orb launches from hand during initial reading arrival window (u in [0.002, 0.16])
+  if (u >= 0.002 && u <= 0.16) {
+    orbEl.style.visibility = 'visible';
+    const handBone = isCardOnRight ? getBone('hand_r') : getBone('hand_l');
+    let handScreenX = isCardOnRight ? 34 : 66;
+    let handScreenY = 46;
+
+    if (handBone) {
+      const pos = handBone.getWorldPosition(v(0, 0, 0)).project(camera);
+      handScreenX = (pos.x * 0.5 + 0.5) * 100;
+      handScreenY = (-pos.y * 0.5 + 0.5) * 100;
+    }
+
+    const targetCardX = isCardOnRight ? (mobile ? 50 : 72) : (mobile ? 50 : 27.5);
+    const targetCardY = mobile ? 38 : 34;
+
+    const orbT = THREE.MathUtils.clamp(u / 0.13, 0, 1);
+    const curX = THREE.MathUtils.lerp(handScreenX, targetCardX, orbT);
+    const arcLift = Math.sin(orbT * Math.PI) * (mobile ? 5 : 8);
+    const curY = THREE.MathUtils.lerp(handScreenY, targetCardY, orbT) - arcLift;
+
+    const theme = COMPANY_THEMES[cardIndex] || COMPANY_THEMES[0];
+    orbEl.style.setProperty('--card-accent', theme.primary);
+    orbEl.style.setProperty('--card-secondary', theme.secondary);
+
+    let scale = 1;
+    let opacity = 1;
+    if (orbT < 0.18) {
+      scale = smooth(0, 0.18, orbT) * 1.15;
+      opacity = smooth(0, 0.15, orbT);
+    } else if (orbT > 0.80) {
+      const popT = (orbT - 0.80) / 0.20;
+      scale = 1.15 + popT * 1.6;
+      opacity = 1 - popT;
+    } else {
+      scale = 1.05 + Math.sin(time * 24) * 0.15;
+      opacity = 1;
+    }
+
+    orbEl.style.opacity = String(opacity);
+    orbEl.style.transform = `translate3d(${curX}vw, ${curY}vh, 0) scale(${scale})`;
+  } else {
+    orbEl.style.opacity = '0';
+    orbEl.style.visibility = 'hidden';
+  }
+}
+
 function fireCardConfetti(cardIndex) {
   if (reducedMotion) return;
   const isRight = (cardIndex % 2 === 0);
   const charX = isRight ? 0.28 : 0.72;
+  const theme = COMPANY_THEMES[cardIndex] || COMPANY_THEMES[5];
   if (typeof window.confetti === 'function') {
     window.confetti({
-      particleCount: 75,
-      spread: 65,
-      startVelocity: 42,
+      particleCount: 85,
+      spread: 70,
+      startVelocity: 44,
       origin: { x: charX, y: 0.38 },
-      colors: ['#ee6849', '#f59e0b', '#849e65', '#ffffff', '#38bdf8']
+      colors: theme.confetti
     });
   }
 }

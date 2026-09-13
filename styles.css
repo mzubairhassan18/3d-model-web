@@ -31,16 +31,120 @@ body.model-hovered, body.model-hovered * { cursor: pointer !important; }
 .exp-card .reveal-word { transition: none; }
 .exp-bullets li.reading .bullet-dot { box-shadow: 0 0 0 4px #ee684914; }
 .exp-tech-tags > span { display: inline-block; will-change: transform, opacity; }
-.experience-deck.pos-center {
-  left: 50%;
-  right: auto;
-  width: min(560px, 80%);
-  max-width: none;
-  top: var(--connect-top, 34%);
-  transform: translateX(-50%);
-  transition: none;
+
+/* Dynamic Hand-Casting Energy Orb */
+.hand-energy-orb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 8;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(0, 0, 0) scale(0);
+  will-change: transform, opacity;
 }
-.exp-card-contact { background: var(--paper); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.hand-energy-orb .orb-core {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 20%, var(--card-accent, var(--accent)) 65%, transparent 100%);
+  box-shadow: 0 0 16px var(--card-accent, var(--accent)), 0 0 32px var(--card-secondary, #f59e0b);
+  animation: orbPulse 0.55s infinite alternate ease-in-out;
+}
+.hand-energy-orb .orb-trail {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--card-accent, var(--accent));
+  opacity: 0.65;
+  animation: orbRing 1.1s infinite ease-out;
+}
+@keyframes orbPulse {
+  0% { transform: scale(0.85); filter: brightness(1); }
+  100% { transform: scale(1.22); filter: brightness(1.4); }
+}
+@keyframes orbRing {
+  0% { transform: scale(0.5); opacity: 0.85; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Company Logo & External Links */
+.exp-company-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+  color: var(--ink);
+  padding: 3px 10px 3px 4px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.80);
+  border: 1px solid rgba(212, 219, 197, 0.85);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: all .24s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+.exp-company-link:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  border-color: var(--card-accent, var(--accent));
+  box-shadow: 0 6px 18px rgba(0,0,0,0.09), 0 0 10px var(--card-accent, var(--accent));
+}
+.company-logo {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.company-logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ext-arrow {
+  font-size: 11px;
+  opacity: 0.55;
+  transition: transform .2s ease, opacity .2s ease;
+}
+.exp-company-link:hover .ext-arrow {
+  opacity: 1;
+  transform: translate(2px, -2px);
+  color: var(--card-accent, var(--accent));
+}
+
+/* Dynamic Company Themes Transition */
+.exp-badge { transition: background .35s ease, color .35s ease; }
+.bullet-dot { transition: background .35s ease, box-shadow .35s ease; }
+.exp-tech-tags span { transition: background .35s ease, color .35s ease; }
+.speech { transition: opacity .2s ease, background .35s ease, color .35s ease, box-shadow .35s ease; }
+.timeline-glow-beam { transition: background .35s ease, box-shadow .35s ease; }
+.timeline-glow-orb { transition: border-color .35s ease, box-shadow .35s ease; }
+
+/* Centered Education & Connect Layout — Zubair head & shoulders visible above */
+.experience-deck.pos-center {
+  left: 50% !important;
+  right: auto !important;
+  width: min(540px, 86%) !important;
+  max-width: none !important;
+  top: 47% !important;
+  transform: translateX(-50%) !important;
+  transition: none !important;
+}
+.exp-card-contact {
+  background: rgba(244, 242, 237, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid #d4dbc5;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px -20px rgba(0,0,0,0.22);
+}
 .exp-card-contact .exp-header { justify-content: center; flex-wrap: wrap; text-align: center; }
 .exp-card-contact .exp-company { text-align: center; }
 .exp-card-contact .exp-role, .exp-card-contact .exp-summary { text-align: center; }
@@ -53,8 +157,8 @@ body.model-hovered, body.model-hovered * { cursor: pointer !important; }
   .experience-deck.pos-center {
     left: 50%!important;
     right: auto!important;
-    width: 90%!important;
-    top: var(--connect-top, 44%);
+    width: 92%!important;
+    top: 49%!important;
   }
   .exp-card-contact .exp-summary { font-size: 11px; line-height: 1.6; margin-bottom: 12px; }
   .exp-card-contact .exp-header { gap: 6px; margin-bottom: 9px; }
