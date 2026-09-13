@@ -20,6 +20,42 @@ let lastConfettiCard = -1, cardReveals = [], lastModelClickTime = 0;
 // Reading windows exclude the existing walks between alternating sides.
 const readingWindows = [[.43, .505], [.545, .605], [.645, .705], [.745, .805], [.845, .915], [.945, 1]];
 let scrollSegments = [];
+let mobileLayout = null;
+
+// Keep the existing desktop flow; mobile CSS places these groups in opposite columns.
+function prepareExperienceLayout() {
+  document.querySelectorAll('#experience-deck .exp-card').forEach(card => {
+    if (card.querySelector('.exp-heading')) return;
+    const heading = document.createElement('div');
+    heading.className = 'exp-heading';
+    const body = document.createElement('div');
+    body.className = 'exp-body';
+    Array.from(card.children).forEach(child => {
+      (child.matches('.exp-header, .exp-role') ? heading : body).append(child);
+    });
+    card.append(heading, body);
+  });
+}
+
+function measureMobileLayout() {
+  mobileLayout = null;
+  if (!mobile) return;
+  const stage = $('.stage').getBoundingClientRect();
+  const brand = $('.brand').getBoundingClientRect();
+  const introTop = brand.bottom - stage.top + 27;
+  document.documentElement.style.setProperty('--mobile-content-top', `${introTop}px`);
+  const footer = $('.footer').getBoundingClientRect();
+  const floor = footer.top - stage.top - 18;
+  const headings = Array.from(document.querySelectorAll('.exp-heading'), heading => {
+    const rect = heading.getBoundingClientRect();
+    return rect.bottom - stage.top;
+  });
+  mobileLayout = { width: stage.width, height: stage.height, floor, headings };
+  document.querySelectorAll('.exp-body').forEach(body => {
+    // Scrollable reading regions can also be reached and scrolled with a keyboard.
+    body.tabIndex = body.scrollHeight > body.clientHeight + 1 ? 0 : -1;
+  });
+}
 
 function readingProgress(index, progress) {
   const [start, end] = readingWindows[index];
@@ -555,6 +591,25 @@ function applyInteractiveGestures(time) {
   }
 }
 
+function getWritingWordScreenPos(card) {
+  const words = card.querySelectorAll('.reveal-word');
+  if (!words.length) return null;
+  let writingWord = null;
+  for (const word of words) {
+    const op = parseFloat(word.style.opacity);
+    if (!isNaN(op) && op > 0.15 && op < 0.99) { writingWord = word; break; }
+  }
+  if (!writingWord) {
+    for (let i = words.length - 1; i >= 0; i--) {
+      const op = parseFloat(words[i].style.opacity);
+      if (!isNaN(op) && op >= 0.99) { writingWord = words[i]; break; }
+    }
+  }
+  if (!writingWord) writingWord = words[0];
+  const rect = writingWord.getBoundingClientRect();
+  return { x: rect.left + rect.width * 0.85, y: rect.top + rect.height * 0.5 };
+}
+
 function pose(time) {
   const p = motion.progress;
 
@@ -577,7 +632,20 @@ function pose(time) {
   const startX = ((mobile ? .67 : .70) - .5) * viewWidth;
   const targetX = ((mobile ? .14 : .29) - .5) * viewWidth;
   character.position.x = THREE.MathUtils.lerp(startX, targetX, walkProgress);
-  const basePosY = 1.5 + (.5 - (mobile ? .835 : .80)) * viewHeight;
+  let basePosY = 1.5 + (.5 - (mobile ? .835 : .80)) * viewHeight;
+  if (mobile && mobileLayout) {
+    const h = character.userData.originalHeight || 1.8;
+    const experienceBlend = smooth(.40, .43, p);
+    // Reserve the entire heading and speech area, even on a short viewport.
+    const headingBottom = Math.max(...mobileLayout.headings, 0);
+    const availableHeight = Math.max(0, mobileLayout.floor - headingBottom - 94);
+    const modelPixels = Math.min(mobileLayout.width * .42, availableHeight);
+    const experienceHeight = modelPixels / mobileLayout.height * viewHeight;
+    const introHeight = Math.min(1.95, viewWidth * .78);
+    character.scale.setScalar(THREE.MathUtils.lerp(introHeight, experienceHeight, experienceBlend) / h);
+    const floorFraction = THREE.MathUtils.lerp(.835, mobileLayout.floor / mobileLayout.height, experienceBlend);
+    basePosY = 1.5 + (.5 - floorFraction) * viewHeight;
+  }
   character.position.y = basePosY;
   character.position.z = 0;
 
@@ -752,9 +820,9 @@ function pose(time) {
 
   // --- PHASE 5 & 6: 5 EXPERIENCE MILESTONES, WALKING TRANSITIONS & 3D PEN ---
   if (p >= 0.43) {
-    const leftStanceX = ((mobile ? .16 : .26) - .5) * viewWidth;
-    const rightStanceX = ((mobile ? .70 : .74) - .5) * viewWidth;
-    const centerStanceX = 0;
+    const leftStanceX = ((mobile ? .25 : .26) - .5) * viewWidth;
+    const rightStanceX = ((mobile ? .75 : .74) - .5) * viewWidth;
+    const centerStanceX = mobile ? rightStanceX : 0;
 
     let targetWalkX = leftStanceX;
     let facingAngle = -0.06;
@@ -936,23 +1004,38 @@ function pose(time) {
     if (pen && penLoaded) {
       if (p < 0.93 && activeIdx < 5) {
         pen.visible = true;
+        const penMaxDim = pen.userData.maxDim || 1;
+        pen.scale.setScalar((mobile ? 0.35 : 0.55) / penMaxDim);
         const revealFactor = THREE.MathUtils.clamp(sliceProgress / 0.74, 0, 1);
-        const cardSideX = isCardOnRight ? ((mobile ? .74 : .75) - .5) * viewWidth : ((mobile ? .26 : .25) - .5) * viewWidth;
-        const restSideX = isCardOnRight ? ((mobile ? .88 : .88) - .5) * viewWidth : ((mobile ? .12 : .12) - .5) * viewWidth;
 
-        const penY = basePosY + THREE.MathUtils.lerp(1.70, 1.15, revealFactor);
         if (revealFactor < 0.98) {
-          // Pen actively scribbling / writing out text
-          pen.position.x = cardSideX + Math.sin(time * 24) * 0.04;
-          pen.position.y = penY + Math.cos(time * 28) * 0.03;
+          // Find the currently-writing reveal-word element in the active card
+          const activeCard = document.querySelector(`#exp-${activeIdx + 1}`);
+          const wordPos = activeCard ? getWritingWordScreenPos(activeCard) : null;
+          if (wordPos) {
+            const canvas = renderer.domElement;
+            const canvasRect = canvas.getBoundingClientRect();
+            const ndcX = ((wordPos.x - canvasRect.left) / canvasRect.width) * 2 - 1;
+            const ndcY = -((wordPos.y - canvasRect.top) / canvasRect.height) * 2 + 1;
+            const targetX = ndcX * viewWidth / 2 + (isCardOnRight ? 0.12 : -0.12);
+            const targetY = ndcY * viewHeight / 2 + 0.15;
+            // Smooth follow — no time-based oscillation, only scroll-driven
+            pen.position.x = THREE.MathUtils.lerp(pen.position.x || targetX, targetX, 0.15);
+            pen.position.y = THREE.MathUtils.lerp(pen.position.y || targetY, targetY, 0.15);
+          } else {
+            const cardSideX = isCardOnRight ? ((mobile ? .74 : .75) - .5) * viewWidth : ((mobile ? .26 : .25) - .5) * viewWidth;
+            const penY = basePosY + THREE.MathUtils.lerp(1.70, 1.15, revealFactor);
+            pen.position.x = cardSideX;
+            pen.position.y = penY;
+          }
           pen.position.z = 1.0;
           pen.rotation.x = 0.45;
           pen.rotation.y = isCardOnRight ? 0.25 : -0.25;
-          pen.rotation.z = (isCardOnRight ? -0.55 : 0.55) + Math.sin(time * 26) * 0.08;
+          pen.rotation.z = isCardOnRight ? -0.55 : 0.55;
         } else {
-          // Writing finished: Pen floats gracefully at rest on the side
+          const restSideX = isCardOnRight ? ((mobile ? .88 : .88) - .5) * viewWidth : ((mobile ? .12 : .12) - .5) * viewWidth;
           pen.position.x = THREE.MathUtils.lerp(pen.position.x, restSideX, 0.1);
-          pen.position.y = basePosY + 1.35 + Math.sin(time * 3) * 0.04;
+          pen.position.y = basePosY + 1.35;
           pen.position.z = 0.90;
           pen.rotation.x = 0.25;
           pen.rotation.y = 0;
@@ -1040,6 +1123,9 @@ function updateUI(p) {
   // Alternate Experience deck between right, left, and center (for final connect card)
   const deck = $('#experience-deck');
   if (deck) {
+    // Cards stay in their columns; clear the stage only while the model walks across.
+    const inMobileTransit = mobile && p >= .43 && !readingWindows.some(([start, end]) => p >= start && p <= end);
+    deck.classList.toggle('mobile-transit', inMobileTransit);
     if (activeExp === 5) {
       deck.classList.add('pos-center');
       deck.classList.remove('pos-left', 'pos-right');
@@ -1074,6 +1160,7 @@ function updateUI(p) {
   const theme = (activeExp >= 0 && activeExp <= 5) ? COMPANY_THEMES[activeExp] : COMPANY_THEMES[5];
   document.documentElement.style.setProperty('--card-accent', theme.primary);
   document.documentElement.style.setProperty('--card-secondary', theme.secondary);
+  document.documentElement.style.setProperty('--card-badge-bg', theme.badgeBg);
 
   // Apply colors to active card elements (date badge, bullet dots, tech tags)
   if (activeExp >= 0 && activeExp <= 5) {
@@ -1211,16 +1298,43 @@ function updateUI(p) {
     $('#speech').style.boxShadow = '';
   }
 
-  // Anchor speech to head position safely
+  // Anchor speech dynamically with variable direction based on Zubair's head position
   const headBone = getBone('head');
   if (headBone) {
     const head = headBone.getWorldPosition(v(0, 0)).project(camera);
-    $('#speech').style.left = `${(head.x * .5 + .5) * 100 + (mobile ? 2 : 3)}%`;
-    $('#speech').style.top = `${(-head.y * .5 + .5) * 100 - 8}%`;
+    const headScreenX = (head.x * .5 + .5) * 100;
+    const headScreenY = (-head.y * .5 + .5) * 100;
+    const speechEl = $('#speech');
+    speechEl.classList.remove('speech-tail-left', 'speech-tail-right', 'speech-tail-center');
+
+    if (head.x > 0.08) {
+      // Model on the right: bubble sits to the left of head with tail pointing right toward him
+      speechEl.classList.add('speech-tail-right');
+      speechEl.style.left = `${THREE.MathUtils.clamp(headScreenX - (mobile ? 3 : 2), 12, 94)}%`;
+    } else if (head.x < -0.08) {
+      // Model on the left: bubble sits to the right of head with tail pointing left toward him
+      speechEl.classList.add('speech-tail-left');
+      speechEl.style.left = `${THREE.MathUtils.clamp(headScreenX + (mobile ? 3 : 2), 6, 88)}%`;
+    } else {
+      // Model centered: bubble sits centered directly above head
+      speechEl.classList.add('speech-tail-center');
+      speechEl.style.left = `${THREE.MathUtils.clamp(headScreenX, 15, 85)}%`;
+    }
+    speechEl.style.top = `${THREE.MathUtils.clamp(headScreenY - (mobile ? 5 : 7), 6, 88)}%`;
+    if (mobile && mobileLayout && activeExp >= 0) {
+      const onRight = activeExp === 1 || activeExp === 3 || activeExp === 5;
+      speechEl.style.left = onRight ? '75%' : '25%';
+      speechEl.style.top = `${mobileLayout.headings[activeExp] + 12}px`;
+      speechEl.classList.add('mobile-experience-speech');
+      // A walking character has no safe column for its speech bubble.
+      if (deck.classList.contains('mobile-transit')) speechEl.style.visibility = 'hidden';
+    } else {
+      speechEl.classList.remove('mobile-experience-speech');
+    }
   }
 
   // Keep the final BS Software Engineering panel below shoulders, centered with Zubair's head and shoulders visible above
-  if (activeExp === 5) {
+  if (activeExp === 5 && !mobile) {
     const shoulder = getBone('spine_03');
     if (shoulder) {
       const projected = shoulder.getWorldPosition(v(0, 0)).project(camera);
@@ -1263,9 +1377,11 @@ function resize() {
   if (character) {
     const origH = character.userData.originalHeight;
     const h = (typeof origH === 'number' && origH > 0.05) ? origH : 1.8;
-    character.scale.setScalar((mobile ? 1.95 : 2.6) / h);
+    character.scale.setScalar((mobile ? Math.min(1.95, viewWidth * .78) : 2.6) / h);
     if (shadow) shadow.scale.set(mobile ? .60 : .87, mobile ? .14 : .20, 1);
   }
+  measureMobileLayout();
+  if (!mobile) document.querySelectorAll('.exp-body').forEach(body => body.removeAttribute('tabindex'));
 }
 
 function makeTimeline() {
@@ -1571,7 +1687,14 @@ function initWordReveal() {
       addWords(item.querySelector('.exp-text'), start, start + slot - .025, item);
       reveal.timeline.fromTo(item.querySelector('.bullet-dot'), { opacity: .14 }, { opacity: 1, duration: .025, ease: 'none' }, start);
     });
-    addWords(card.querySelector('.exp-summary'), .25, .53);
+    const summary = card.querySelector('.exp-summary');
+    const summaryVariants = summary?.querySelectorAll('.contact-summary-desktop, .contact-summary-mobile');
+    if (summaryVariants?.length) {
+      // Both variants use the same reading window, including after viewport changes.
+      summaryVariants.forEach(variant => addWords(variant, .25, .53));
+    } else {
+      addWords(summary, .25, .53);
+    }
 
     const tags = Array.from(card.querySelectorAll('.exp-tech-tags > span'));
     tags.forEach((tag, tagIndex) => {
@@ -1594,18 +1717,26 @@ function initWordReveal() {
 }
 
 function wrapWordsInElement(element, wordList) {
-  const text = element.textContent.trim();
-  if (!text) return;
-  const words = text.split(/\s+/);
-  element.innerHTML = '';
-  words.forEach((w, index) => {
-    const span = document.createElement('span');
-    span.className = 'reveal-word';
-    span.textContent = w;
-    element.appendChild(span);
-    if (index < words.length - 1) element.appendChild(document.createTextNode(' '));
-    wordList.push(span);
+  // Replace text nodes only: preserve summary variants, emphasis and accessible markup.
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  textNodes.forEach(node => {
+    if (node.parentElement.closest('.reveal-word')) return;
+    const fragment = document.createDocumentFragment();
+    node.textContent.split(/(\s+)/).filter(Boolean).forEach(part => {
+      if (/^\s+$/.test(part)) {
+        fragment.append(document.createTextNode(part));
+      } else {
+        const span = document.createElement('span');
+        span.className = 'reveal-word';
+        span.textContent = part;
+        fragment.append(span);
+      }
+    });
+    node.replaceWith(fragment);
   });
+  wordList.push(...element.querySelectorAll('.reveal-word'));
 }
 
 async function init() {
@@ -1667,8 +1798,9 @@ async function init() {
       const penBox = new THREE.Box3().setFromObject(pen);
       const penSize = penBox.getSize(v(0, 0, 0));
       const maxDim = Math.max(penSize.x, penSize.y, penSize.z) || 1;
-      const penScale = 0.55 / maxDim;
+      const penScale = (mobile ? 0.35 : 0.55) / maxDim;
       pen.scale.setScalar(penScale);
+      pen.userData.maxDim = maxDim;
       pen.visible = false;
       scene.add(pen);
       penLoaded = true;
@@ -1694,7 +1826,7 @@ async function init() {
     ctx.fillStyle = gradient; ctx.fillRect(0, 0, 128, 128);
     shadow = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false }));
     scene.add(shadow);
-    resize(); makeTimeline(); initWordReveal();
+    prepareExperienceLayout(); resize(); makeTimeline(); initWordReveal(); measureMobileLayout();
     document.body.dataset.ready = 'true';
     window.gsap.to('#loader', { autoAlpha: 0, duration: .5, onComplete: () => $('#loader').style.display = 'none' });
     window.ScrollTrigger.refresh();
@@ -1722,7 +1854,7 @@ async function init() {
     });
     window.addEventListener('resize', resize);
     initInteractions();
-    document.fonts.ready.then(() => window.ScrollTrigger.refresh());
+    document.fonts.ready.then(() => { measureMobileLayout(); window.ScrollTrigger.refresh(); });
   } catch (error) {
     console.error(error);
     showError(error.message.includes('WebGL') ? 'This browser could not start the 3D view. Try a browser with WebGL and hardware acceleration enabled.' : `Zubair couldn’t load. Open this app through the included local server and check that assets/nathan.glb is present. ${error.message}`);
