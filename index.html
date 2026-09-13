@@ -11,6 +11,7 @@
   <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
   <script src="vendor/gsap.min.js" defer></script>
   <script src="vendor/ScrollTrigger.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js" defer></script>
   <script type="module" src="app.js"></script>
 </head>
 <body>
@@ -45,6 +46,13 @@
         </div>
         <div class="card-bottom"><span>Scroll to see experience</span><span class="card-arrow">↓</span></div>
       </section>
+
+      <!-- Central glowing timeline connector between Zubair and Experience cards -->
+      <div class="timeline-glow-track" id="timeline-glow-track" aria-hidden="true">
+        <div class="timeline-glow-beam" id="timeline-glow-beam">
+          <span class="timeline-glow-orb"></span>
+        </div>
+      </div>
 
       <!-- Experience Section Cards revealed sequentially as Zubair points & celebrates -->
       <div class="experience-deck" id="experience-deck" aria-hidden="true" inert>

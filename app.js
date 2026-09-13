@@ -15,6 +15,16 @@ const smooth = (a, b, value) => THREE.MathUtils.smoothstep(value, a, b);
 let renderer, character, shadow, timeline, viewWidth, viewHeight, mobile;
 let chapter = -1, soundEnabled = false, greeted = false;
 let mixer, walkAction, walkClip;
+let pen = null, penLoaded = false;
+let lastConfettiCard = -1, cardReveals = [], lastModelClickTime = 0;
+// Reading windows exclude the existing walks between alternating sides.
+const readingWindows = [[.43, .505], [.545, .605], [.645, .705], [.745, .805], [.845, .915], [.945, 1]];
+let scrollSegments = [];
+
+function readingProgress(index, progress) {
+  const [start, end] = readingWindows[index];
+  return THREE.MathUtils.clamp((progress - start) / (end - start), 0, 1);
+}
 const raycaster = new THREE.Raycaster();
 let hitMesh = null, lastFrameTime = 0;
 
@@ -470,6 +480,7 @@ function pose(time) {
   character.position.x = THREE.MathUtils.lerp(startX, targetX, walkProgress);
   const basePosY = 1.5 + (.5 - (mobile ? .835 : .80)) * viewHeight;
   character.position.y = basePosY;
+  character.position.z = 0;
 
   // Turn to face left when walking, face front/camera otherwise
   const turnLeft = smooth(.14, .18, p);
@@ -640,64 +651,161 @@ function pose(time) {
     }
   }
 
-  // --- PHASE 5 & 6: 5 EXPERIENCE MILESTONES & CELEBRATIONS ---
+  // --- PHASE 5 & 6: 5 EXPERIENCE MILESTONES, WALKING TRANSITIONS & 3D PEN ---
   if (p >= 0.43) {
-    const slices = [
-      { start: 0.43, end: 0.53 }, // 0: Truey (Current)
-      { start: 0.53, end: 0.63 }, // 1: USTAFF360
-      { start: 0.63, end: 0.73 }, // 2: CARE
-      { start: 0.73, end: 0.83 }, // 3: Embrace-It
-      { start: 0.83, end: 0.93 }, // 4: CARE Joget
-      { start: 0.93, end: 1.00 }  // 5: Education & Connect
-    ];
+    const leftStanceX = ((mobile ? .16 : .26) - .5) * viewWidth;
+    const rightStanceX = ((mobile ? .70 : .74) - .5) * viewWidth;
+    const centerStanceX = 0;
 
-    let currentSlice = slices[slices.length - 1];
-    let sliceProgress = 1;
-    for (const slice of slices) {
-      if (p >= slice.start && p < slice.end) {
-        currentSlice = slice;
-        sliceProgress = (p - slice.start) / (slice.end - slice.start);
-        break;
-      }
+    let targetWalkX = leftStanceX;
+    let facingAngle = -0.06;
+    let cardTransitWalk = 0;
+    let cardIndex = 0;
+    let isCardOnRight = true;
+
+    if (p < 0.505) {
+      // Card 0 (Truey): Zubair on LEFT, card on RIGHT
+      cardIndex = 0;
+      targetWalkX = leftStanceX;
+      facingAngle = 0.08;
+      isCardOnRight = true;
+    } else if (p < 0.545) {
+      // Transit 0 -> 1: Walks from Left to Right
+      cardIndex = 0;
+      const t = smooth(0.505, 0.545, p);
+      targetWalkX = THREE.MathUtils.lerp(leftStanceX, rightStanceX, t);
+      cardTransitWalk = Math.sin(t * Math.PI);
+      facingAngle = Math.PI * 0.48; // faces right while walking
+      isCardOnRight = t < 0.5;
+    } else if (p < 0.605) {
+      // Card 1 (USTAFF360): Zubair on RIGHT, card on LEFT
+      cardIndex = 1;
+      targetWalkX = rightStanceX;
+      facingAngle = -0.12;
+      isCardOnRight = false;
+    } else if (p < 0.645) {
+      // Transit 1 -> 2: Walks from Right to Left
+      cardIndex = 1;
+      const t = smooth(0.605, 0.645, p);
+      targetWalkX = THREE.MathUtils.lerp(rightStanceX, leftStanceX, t);
+      cardTransitWalk = Math.sin(t * Math.PI);
+      facingAngle = -Math.PI * 0.48; // faces left while walking
+      isCardOnRight = t >= 0.5;
+    } else if (p < 0.705) {
+      // Card 2 (CARE): Zubair on LEFT, card on RIGHT
+      cardIndex = 2;
+      targetWalkX = leftStanceX;
+      facingAngle = 0.08;
+      isCardOnRight = true;
+    } else if (p < 0.745) {
+      // Transit 2 -> 3: Walks from Left to Right
+      cardIndex = 2;
+      const t = smooth(0.705, 0.745, p);
+      targetWalkX = THREE.MathUtils.lerp(leftStanceX, rightStanceX, t);
+      cardTransitWalk = Math.sin(t * Math.PI);
+      facingAngle = Math.PI * 0.48;
+      isCardOnRight = t < 0.5;
+    } else if (p < 0.805) {
+      // Card 3 (Embrace-It): Zubair on RIGHT, card on LEFT
+      cardIndex = 3;
+      targetWalkX = rightStanceX;
+      facingAngle = -0.12;
+      isCardOnRight = false;
+    } else if (p < 0.845) {
+      // Transit 3 -> 4: Walks from Right to Left
+      cardIndex = 3;
+      const t = smooth(0.805, 0.845, p);
+      targetWalkX = THREE.MathUtils.lerp(rightStanceX, leftStanceX, t);
+      cardTransitWalk = Math.sin(t * Math.PI);
+      facingAngle = -Math.PI * 0.48;
+      isCardOnRight = t >= 0.5;
+    } else if (p < 0.915) {
+      // Card 4 (CARE Joget): Zubair on LEFT, card on RIGHT
+      cardIndex = 4;
+      targetWalkX = leftStanceX;
+      facingAngle = 0.08;
+      isCardOnRight = true;
+    } else if (p < 0.945) {
+      // Transit 4 -> 5: Walks from Left to Center
+      cardIndex = 4;
+      const t = smooth(0.915, 0.945, p);
+      targetWalkX = THREE.MathUtils.lerp(leftStanceX, centerStanceX, t);
+      cardTransitWalk = Math.sin(t * Math.PI);
+      facingAngle = Math.PI * 0.48;
+      isCardOnRight = true;
+    } else {
+      // Card 5 (Connect): centered
+      cardIndex = 5;
+      targetWalkX = centerStanceX;
+      facingAngle = 0;
+      isCardOnRight = true;
     }
 
-    if (p < 0.93) {
-      // First 50% -> Point at card on right
-      // Second 50% -> 'Yeah Moment' celebration facing camera
-      const isPointing = sliceProgress < 0.50;
-      const pointWeight = isPointing ? smooth(0, .22, sliceProgress) * (1 - smooth(.40, .52, sliceProgress)) : 0;
-      const yeahWeight = !isPointing ? smooth(.46, .62, sliceProgress) * (1 - smooth(.86, 1.0, sliceProgress)) : 0;
+    character.position.x = targetWalkX;
+
+    // Animate walk cycle when walking between cards
+    if (cardTransitWalk > 0.01) {
+      if (mixer) mixer.setTime(p * 28 + time * 0.2);
+      character.rotation.y = facingAngle;
+    } else {
+      character.rotation.y = THREE.MathUtils.lerp(character.rotation.y, facingAngle, 0.15);
+    }
+
+    const activeIdx = Math.min(5, Math.max(0, cardIndex));
+    const sliceProgress = readingProgress(activeIdx, p);
+
+    if (p < 0.93 && cardTransitWalk < 0.20) {
+      const isPointing = sliceProgress < 0.78;
+      const pointWeight = isPointing ? smooth(0, .12, sliceProgress) * (1 - smooth(.72, .79, sliceProgress)) : 0;
+      const yeahWeight = !isPointing ? smooth(.78, .87, sliceProgress) * (1 - smooth(.96, 1.0, sliceProgress)) : 0;
 
       if (pointWeight > 0.01) {
-        // Pointing at card
-        character.rotation.y = .05 * pointWeight;
-        turnWorld('head', v(0, 1, 0), pointWeight * .22);
-        aimBone('upperarm_r', 'lowerarm_r', v(-.18, -1, .02));
-        aimBone('lowerarm_r', 'hand_r', v(.07, -1, .16));
-        aimBone('upperarm_l', 'lowerarm_l', v(1, -.62, .12));
-        aimBone('lowerarm_l', 'hand_l', v(1, -.20, .05));
-        aimBone('hand_l', 'middle_01_l', v(1, -.18, .03));
+        // Pointing at card:
+        // When card is on RIGHT: point right arm
+        // When card is on LEFT: point left arm
+        if (isCardOnRight) {
+          aimBone('upperarm_l', 'lowerarm_l', v(.18, -1, .02));
+          aimBone('lowerarm_l', 'hand_l', v(-.08, -1, .10));
 
-        for (const finger of ['middle', 'ring', 'pinky']) {
-          for (const joint of ['01', '02', '03']) {
-            const b = getBone(`${finger}_${joint}_l`);
-            if (b) b.rotateZ(pointWeight * (joint === '01' ? .95 : 1.25));
+          aimBone('upperarm_r', 'lowerarm_r', v(1, -.52, .15));
+          aimBone('lowerarm_r', 'hand_r', v(1, -.18, .08));
+          aimBone('hand_r', 'middle_01_r', v(1, -.15, .05));
+
+          for (const finger of ['middle', 'ring', 'pinky']) {
+            for (const joint of ['01', '02', '03']) {
+              const b = getBone(`${finger}_${joint}_r`);
+              if (b) b.rotateZ(pointWeight * (joint === '01' ? -.95 : -1.25));
+            }
           }
+          const thumb = getBone('thumb_01_r');
+          if (thumb) thumb.rotateZ(pointWeight * -.32);
+        } else {
+          aimBone('upperarm_r', 'lowerarm_r', v(-.18, -1, .02));
+          aimBone('lowerarm_r', 'hand_r', v(.07, -1, .16));
+
+          aimBone('upperarm_l', 'lowerarm_l', v(-1, -.52, .15));
+          aimBone('lowerarm_l', 'hand_l', v(-1, -.18, .08));
+          aimBone('hand_l', 'middle_01_l', v(-1, -.15, .05));
+
+          for (const finger of ['middle', 'ring', 'pinky']) {
+            for (const joint of ['01', '02', '03']) {
+              const b = getBone(`${finger}_${joint}_l`);
+              if (b) b.rotateZ(pointWeight * (joint === '01' ? .95 : 1.25));
+            }
+          }
+          const thumb = getBone('thumb_01_l');
+          if (thumb) thumb.rotateZ(pointWeight * .32);
         }
-        const thumb = getBone('thumb_01_l');
-        if (thumb) thumb.rotateZ(pointWeight * .32);
       } else if (yeahWeight > 0.01) {
         // 'Yeah Moment': Hands upward from elbows, knees slightly bent, smiling forward at camera
         character.rotation.y = 0;
         character.position.y = basePosY - yeahWeight * 0.08;
         bendKnees(yeahWeight * 0.38);
 
-        // Left arm: elbows bent up
         aimBone('upperarm_l', 'lowerarm_l', v(.32, -.45, .12));
         aimBone('lowerarm_l', 'hand_l', v(.12, .92, .20));
         aimBone('hand_l', 'middle_01_l', v(.08, 1, .10));
 
-        // Right arm: elbows bent up
         aimBone('upperarm_r', 'lowerarm_r', v(-.32, -.45, .12));
         aimBone('lowerarm_r', 'hand_r', v(-.12, .92, .20));
         aimBone('hand_r', 'middle_01_r', v(-.08, 1, .10));
@@ -710,14 +818,13 @@ function pose(time) {
         }
         const jaw = getBone('jaw');
         if (!reducedMotion && jaw) jaw.rotateZ(0.022 * yeahWeight * (0.8 + 0.2 * Math.sin(time * 6)));
-      } else {
-        // Resting posture between gesture transitions
+      } else if (cardTransitWalk < 0.01) {
         aimBone('upperarm_r', 'lowerarm_r', v(-.18, -1, .02));
         aimBone('lowerarm_r', 'hand_r', v(.07, -1, .16));
         aimBone('upperarm_l', 'lowerarm_l', v(.18, -1, .02));
         aimBone('lowerarm_l', 'hand_l', v(-.08, -1, .10));
       }
-    } else {
+    } else if (p >= 0.93) {
       // Connect / Final card: welcoming celebration
       character.rotation.y = 0;
       aimBone('upperarm_l', 'lowerarm_l', v(.45, -.3, .2));
@@ -725,6 +832,39 @@ function pose(time) {
       aimBone('upperarm_r', 'lowerarm_r', v(-.45, -.3, .2));
       aimBone('lowerarm_r', 'hand_r', v(-.25, .7, .2));
     }
+
+    // 3D Animated Pen (assets/pen.glb)
+    if (pen && penLoaded) {
+      if (p < 0.93 && activeIdx < 5) {
+        pen.visible = true;
+        const revealFactor = THREE.MathUtils.clamp(sliceProgress / 0.74, 0, 1);
+        const cardSideX = isCardOnRight ? ((mobile ? .74 : .75) - .5) * viewWidth : ((mobile ? .26 : .25) - .5) * viewWidth;
+        const restSideX = isCardOnRight ? ((mobile ? .88 : .88) - .5) * viewWidth : ((mobile ? .12 : .12) - .5) * viewWidth;
+
+        const penY = basePosY + THREE.MathUtils.lerp(1.70, 1.15, revealFactor);
+        if (revealFactor < 0.98) {
+          // Pen actively scribbling / writing out text
+          pen.position.x = cardSideX + Math.sin(time * 24) * 0.04;
+          pen.position.y = penY + Math.cos(time * 28) * 0.03;
+          pen.position.z = 1.0;
+          pen.rotation.x = 0.45;
+          pen.rotation.y = isCardOnRight ? 0.25 : -0.25;
+          pen.rotation.z = (isCardOnRight ? -0.55 : 0.55) + Math.sin(time * 26) * 0.08;
+        } else {
+          // Writing finished: Pen floats gracefully at rest on the side
+          pen.position.x = THREE.MathUtils.lerp(pen.position.x, restSideX, 0.1);
+          pen.position.y = basePosY + 1.35 + Math.sin(time * 3) * 0.04;
+          pen.position.z = 0.90;
+          pen.rotation.x = 0.25;
+          pen.rotation.y = 0;
+          pen.rotation.z = isCardOnRight ? -0.28 : 0.28;
+        }
+      } else {
+        pen.visible = false;
+      }
+    }
+  } else {
+    if (pen) pen.visible = false;
   }
 
   // Apply living human idle motions (weight shifting, head gaze, breathing, arm float)
@@ -737,7 +877,7 @@ function pose(time) {
   if (interactionState.blend > 0.001) {
     character.position.x += interactionState.pelvisOffset.x;
     character.position.y += interactionState.pelvisOffset.y;
-    character.position.z += interactionState.pelvisOffset.z;
+    character.position.z = interactionState.pelvisOffset.z;
   }
 
   character.updateMatrixWorld(true);
@@ -794,8 +934,22 @@ function updateUI(p) {
   else if (p >= .83 && p < .93) activeExp = 4; // CARE Joget
   else if (p >= .93) activeExp = 5;            // Connect
 
+  // Alternate Experience deck between right and left sides
+  const deck = $('#experience-deck');
+  if (deck) {
+    deck.classList.toggle('pos-center', activeExp === 5);
+    if (activeExp === 1 || activeExp === 3) {
+      deck.classList.add('pos-left');
+      deck.classList.remove('pos-right');
+    } else {
+      deck.classList.add('pos-right');
+      deck.classList.remove('pos-left');
+    }
+  }
+
   const cards = document.querySelectorAll('.exp-card');
   cards.forEach((card, i) => {
+    card.inert = i !== activeExp;
     if (i === activeExp) {
       card.classList.add('active');
       card.classList.remove('exit');
@@ -810,6 +964,49 @@ function updateUI(p) {
       card.setAttribute('aria-hidden', 'true');
     }
   });
+
+  // Paused GSAP timelines follow scroll in either direction, never elapsed time.
+  cardReveals.forEach((reveal, index) => {
+    const progress = readingProgress(index, p);
+    reveal.timeline.progress(progress);
+    reveal.groups.forEach(group => {
+      const current = progress >= group.start && progress < group.end;
+      if (group.item) group.item.classList.toggle('reading', current);
+    });
+    // Links are keyboard reachable as soon as their own reveal finishes.
+    reveal.links.forEach(({ element, end }) => { element.inert = index !== activeExp || progress < end; });
+  });
+
+  // Celebratory confetti burst on Yeah moment of each card
+  if (p >= 0.43 && p < 0.93 && activeExp >= 0 && activeExp <= 4) {
+    const u = readingProgress(activeExp, p);
+
+    if (u >= 0.86 && u <= 0.96) {
+      if (lastConfettiCard !== activeExp) {
+        lastConfettiCard = activeExp;
+        fireCardConfetti(activeExp);
+      }
+    } else if (u < 0.80 || u > 0.98) {
+      if (lastConfettiCard === activeExp) {
+        lastConfettiCard = -1;
+      }
+    }
+  } else {
+    lastConfettiCard = -1;
+  }
+
+  // Glowing vertical timeline beam tracker
+  const glowTrack = $('#timeline-glow-track');
+  const glowBeam = $('#timeline-glow-beam');
+  if (glowTrack && glowBeam) {
+    if (p >= 0.41 && p <= 0.94) {
+      glowTrack.classList.add('active');
+      const lineProgress = smooth(0.43, 0.92, p);
+      glowBeam.style.height = `${lineProgress * 100}%`;
+    } else {
+      glowTrack.classList.remove('active');
+    }
+  }
 
   // Dynamic Speech bubble text & visibility
   let speechText = '';
@@ -870,6 +1067,19 @@ function updateUI(p) {
     $('#speech').style.top = `${(-head.y * .5 + .5) * 100 - 8}%`;
   }
 
+  // Keep the final panel below the shoulders, aligned with the centered model.
+  if (activeExp === 5) {
+    const shoulder = getBone('spine_03');
+    if (shoulder) {
+      const projected = shoulder.getWorldPosition(v(0, 0)).project(camera);
+      const stageHeight = $('#scene').clientHeight;
+      const cardHeight = $('#exp-6').offsetHeight;
+      const shoulderY = (-projected.y * .5 + .5) * stageHeight + 22;
+      deck.style.setProperty('--connect-top', `${Math.min(shoulderY, stageHeight - cardHeight - 88)}px`);
+    }
+  }
+  $('#speech').classList.toggle('connect-speech', activeExp === 5);
+
   const walkProgress = smooth(.15, .26, p);
   $('.character-label').style.left = `${THREE.MathUtils.lerp(mobile ? 67 : 70, mobile ? 18 : 29, walkProgress)}%`;
   $('.character-label').style.opacity = mobile ? 1 - walkProgress : 1;
@@ -913,8 +1123,22 @@ function makeTimeline() {
     trigger: '#experience', start: 'top top', end: 'bottom bottom', scrub: reducedMotion ? true : .65,
     invalidateOnRefresh: true,
   }});
-  timeline.to(motion, { progress: 1, duration: 1, ease: 'none' }, 0)
-    .to('#progress', { scaleX: 1, duration: 1, ease: 'none' }, 0)
+  // Extend only reading sections; preserve the intro, jump and walking distances.
+  let sceneStart = 0, cursor = 0;
+  scrollSegments = [];
+  const addSegment = (sceneEnd, duration) => {
+    scrollSegments.push({ start: sceneStart, end: sceneEnd, time: cursor, duration });
+    timeline.to(motion, { progress: sceneEnd, duration, ease: 'none' }, cursor);
+    cursor += duration;
+    sceneStart = sceneEnd;
+  };
+  readingWindows.forEach(([start, end], index) => {
+    if (start > sceneStart) addSegment(start, start - sceneStart);
+    const points = document.querySelectorAll(`#exp-${index + 1} .exp-bullets li`).length;
+    addSegment(end, index === 5 ? .32 : .10 + points * .065);
+  });
+  $('#experience').style.height = `${(1 + 7.8 * cursor) * 100}svh`;
+  timeline.to('#progress', { scaleX: 1, duration: cursor, ease: 'none' }, 0)
     .to('#intro', { autoAlpha: 0, y: reducedMotion ? 0 : -24, duration: .06 }, .07)
     .to('.backdrop-word', { opacity: .45, xPercent: -15, duration: .6 }, .10)
     .to('#greeting', { autoAlpha: 1, y: 0, duration: .04 }, .08)
@@ -925,7 +1149,10 @@ function makeTimeline() {
 
 function goTo(progress) {
   const distance = $('#experience').offsetHeight - innerHeight;
-  window.scrollTo({ top: Math.max(0, distance * progress), behavior: reducedMotion ? 'instant' : 'smooth' });
+  const segment = scrollSegments.find(part => progress <= part.end) || scrollSegments.at(-1);
+  const time = segment ? segment.time + segment.duration * THREE.MathUtils.clamp((progress - segment.start) / (segment.end - segment.start), 0, 1) : progress;
+  const scrollProgress = timeline ? time / timeline.duration() : progress;
+  window.scrollTo({ top: Math.max(0, distance * scrollProgress), behavior: reducedMotion ? 'instant' : 'smooth' });
 }
 $('#begin').addEventListener('click', () => goTo(.28));
 $('#replay').addEventListener('click', () => goTo(0));
@@ -1005,7 +1232,17 @@ function onPointerDown(e) {
   raycaster.setFromCamera(ndc, camera);
   const hits = raycaster.intersectObject(character, true);
   if (hits.length > 0) {
-    triggerGesture('step_back');
+    const now = performance.now();
+    const timeSinceLastClick = now - lastModelClickTime;
+    lastModelClickTime = now;
+
+    // Strict double-click requirement: only trigger when two clicks occur within 70ms - 380ms
+    // Ignore single clicks and rapid spam clicks so model never gets spammed or hidden
+    if (timeSinceLastClick >= 70 && timeSinceLastClick <= 380) {
+      if (!interactionState.activeGesture) {
+        triggerGesture('step_back');
+      }
+    }
   }
 }
 
@@ -1080,6 +1317,86 @@ function initInteractions() {
   window.addEventListener('pointerleave', onPointerLeave, { passive: true });
 }
 
+function fireCardConfetti(cardIndex) {
+  if (reducedMotion) return;
+  const isRight = (cardIndex % 2 === 0);
+  const charX = isRight ? 0.28 : 0.72;
+  if (typeof window.confetti === 'function') {
+    window.confetti({
+      particleCount: 75,
+      spread: 65,
+      startVelocity: 42,
+      origin: { x: charX, y: 0.38 },
+      colors: ['#ee6849', '#f59e0b', '#849e65', '#ffffff', '#38bdf8']
+    });
+  }
+}
+
+function initWordReveal() {
+  const cards = document.querySelectorAll('#experience-deck .exp-card');
+  cardReveals = [];
+  const directions = [[-110, 0, -12], [0, -85, 9], [115, 0, 12], [0, 85, -8], [-80, -65, -10], [85, 60, 10]];
+
+  cards.forEach((card, index) => {
+    const reveal = { timeline: window.gsap.timeline({ paused: true }), groups: [], links: [] };
+    reveal.timeline.to({}, { duration: 1 }, 0);
+    const addWords = (element, start, end, item = null) => {
+      if (!element) return;
+      const words = [];
+      wrapWordsInElement(element, words);
+      const duration = end - start;
+      reveal.groups.push({ start, end, item });
+      reveal.timeline.fromTo(words,
+        { opacity: .14, y: reducedMotion ? 0 : 3, filter: reducedMotion ? 'none' : 'blur(1.5px)' },
+        { opacity: 1, y: 0, filter: 'blur(0px)', duration: duration * .22, stagger: { amount: duration * .78 }, ease: 'none' }, start);
+    };
+
+    addWords(card.querySelector('.exp-role'), .02, index === 5 ? .20 : .12);
+    const bullets = Array.from(card.querySelectorAll('.exp-bullets li'));
+    bullets.forEach((item, point) => {
+      const slot = .58 / bullets.length;
+      const start = .16 + point * slot;
+      // Target the actual nested text span, preserving its bullet and typography.
+      addWords(item.querySelector('.exp-text'), start, start + slot - .025, item);
+      reveal.timeline.fromTo(item.querySelector('.bullet-dot'), { opacity: .14 }, { opacity: 1, duration: .025, ease: 'none' }, start);
+    });
+    addWords(card.querySelector('.exp-summary'), .25, .53);
+
+    const tags = Array.from(card.querySelectorAll('.exp-tech-tags > span'));
+    tags.forEach((tag, tagIndex) => {
+      const [x, y, rotation] = directions[tagIndex % directions.length];
+      const start = .76 + tagIndex * (.12 / Math.max(1, tags.length - 1));
+      reveal.timeline.fromTo(tag,
+        { autoAlpha: 0, x: reducedMotion ? 0 : x, y: reducedMotion ? 0 : y, rotation: reducedMotion ? 0 : rotation, scale: reducedMotion ? 1 : .75 },
+        { autoAlpha: 1, x: 0, y: 0, rotation: 0, scale: 1, duration: .10, ease: reducedMotion ? 'none' : 'back.out(1.5)' }, start);
+    });
+
+    card.querySelectorAll('.contact-pill').forEach((element, linkIndex) => {
+      const start = .57 + linkIndex * .085;
+      reveal.timeline.fromTo(element,
+        { autoAlpha: 0, y: reducedMotion ? 0 : 12 },
+        { autoAlpha: 1, y: 0, duration: .07, ease: 'power2.out' }, start);
+      reveal.links.push({ element, end: start + .07 });
+    });
+    cardReveals.push(reveal);
+  });
+}
+
+function wrapWordsInElement(element, wordList) {
+  const text = element.textContent.trim();
+  if (!text) return;
+  const words = text.split(/\s+/);
+  element.innerHTML = '';
+  words.forEach((w, index) => {
+    const span = document.createElement('span');
+    span.className = 'reveal-word';
+    span.textContent = w;
+    element.appendChild(span);
+    if (index < words.length - 1) element.appendChild(document.createTextNode(' '));
+    wordList.push(span);
+  });
+}
+
 async function init() {
   try {
     if (!window.gsap || !window.ScrollTrigger) throw new Error('The animation libraries could not load. Please reload this page.');
@@ -1127,6 +1444,27 @@ async function init() {
     character.userData.originalHeight = new THREE.Box3().setFromObject(character).getSize(v(0, 0)).y;
     scene.add(character);
 
+    // Load 3D animated pen for writing word-by-word reveal in experience section
+    try {
+      const penGltf = await new GLTFLoader().loadAsync('./assets/pen.glb');
+      pen = penGltf.scene;
+      pen.traverse(obj => {
+        if (obj.isMesh) {
+          obj.frustumCulled = false;
+        }
+      });
+      const penBox = new THREE.Box3().setFromObject(pen);
+      const penSize = penBox.getSize(v(0, 0, 0));
+      const maxDim = Math.max(penSize.x, penSize.y, penSize.z) || 1;
+      const penScale = 0.55 / maxDim;
+      pen.scale.setScalar(penScale);
+      pen.visible = false;
+      scene.add(pen);
+      penLoaded = true;
+    } catch (penErr) {
+      console.warn('Could not load pen.glb:', penErr);
+    }
+
     // Hit-testing cylinder for robust raycasting on hover and click
     const charHeight = (typeof character.userData.originalHeight === 'number' && character.userData.originalHeight > 0.1)
       ? character.userData.originalHeight
@@ -1145,7 +1483,7 @@ async function init() {
     ctx.fillStyle = gradient; ctx.fillRect(0, 0, 128, 128);
     shadow = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false }));
     scene.add(shadow);
-    resize(); makeTimeline();
+    resize(); makeTimeline(); initWordReveal();
     document.body.dataset.ready = 'true';
     window.gsap.to('#loader', { autoAlpha: 0, duration: .5, onComplete: () => $('#loader').style.display = 'none' });
     window.ScrollTrigger.refresh();
