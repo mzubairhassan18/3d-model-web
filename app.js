@@ -636,12 +636,15 @@ function pose(time) {
   if (mobile && mobileLayout) {
     const h = character.userData.originalHeight || 1.8;
     const experienceBlend = smooth(.40, .43, p);
+    const isConnect = p >= 0.93;
     // Reserve the entire heading and speech area, even on a short viewport.
     const headingBottom = Math.max(...mobileLayout.headings, 0);
-    const availableHeight = Math.max(0, mobileLayout.floor - headingBottom - 94);
-    const modelPixels = Math.min(mobileLayout.width * .42, availableHeight);
+    const connectPadding = isConnect ? 20 : 94;
+    const availableHeight = Math.max(0, mobileLayout.floor - headingBottom - connectPadding);
+    const widthFactor = isConnect ? .84 : 1.1;
+    const modelPixels = Math.min(mobileLayout.width * widthFactor, availableHeight);
     const experienceHeight = modelPixels / mobileLayout.height * viewHeight;
-    const introHeight = Math.min(1.95, viewWidth * .78);
+    const introHeight = Math.min(2.5, viewWidth * .95);
     character.scale.setScalar(THREE.MathUtils.lerp(introHeight, experienceHeight, experienceBlend) / h);
     const floorFraction = THREE.MathUtils.lerp(.835, mobileLayout.floor / mobileLayout.height, experienceBlend);
     basePosY = 1.5 + (.5 - floorFraction) * viewHeight;
@@ -822,7 +825,7 @@ function pose(time) {
   if (p >= 0.43) {
     const leftStanceX = ((mobile ? .25 : .26) - .5) * viewWidth;
     const rightStanceX = ((mobile ? .75 : .74) - .5) * viewWidth;
-    const centerStanceX = mobile ? rightStanceX : 0;
+    const centerStanceX = 0;
 
     let targetWalkX = leftStanceX;
     let facingAngle = -0.06;
@@ -1069,8 +1072,8 @@ function pose(time) {
   character.updateMatrixWorld(true);
   const jumpHopY = Math.max(0, interactionState.pelvisOffset.y);
   shadow.position.set(character.position.x, basePosY - .016, -.30);
-  const baseShadowW = mobile ? .60 : .87;
-  const baseShadowH = mobile ? .14 : .20;
+  const baseShadowW = mobile ? (.60 * (p >= 0.93 ? 1.6 : 1)) : .87;
+  const baseShadowH = mobile ? (.14 * (p >= 0.93 ? 1.6 : 1)) : .20;
   shadow.scale.set(baseShadowW * (1 - jumpHopY * 0.35), baseShadowH * (1 - jumpHopY * 0.35), 1);
   updateUI(p);
 }
@@ -1321,16 +1324,7 @@ function updateUI(p) {
       speechEl.style.left = `${THREE.MathUtils.clamp(headScreenX, 15, 85)}%`;
     }
     speechEl.style.top = `${THREE.MathUtils.clamp(headScreenY - (mobile ? 5 : 7), 6, 88)}%`;
-    if (mobile && mobileLayout && activeExp >= 0) {
-      const onRight = activeExp === 1 || activeExp === 3 || activeExp === 5;
-      speechEl.style.left = onRight ? '75%' : '25%';
-      speechEl.style.top = `${mobileLayout.headings[activeExp] + 12}px`;
-      speechEl.classList.add('mobile-experience-speech');
-      // A walking character has no safe column for its speech bubble.
-      if (deck.classList.contains('mobile-transit')) speechEl.style.visibility = 'hidden';
-    } else {
-      speechEl.classList.remove('mobile-experience-speech');
-    }
+    if (mobile && deck.classList.contains('mobile-transit')) speechEl.style.visibility = 'hidden';
   }
 
   // Keep the final BS Software Engineering panel below shoulders, centered with Zubair's head and shoulders visible above
@@ -1377,7 +1371,7 @@ function resize() {
   if (character) {
     const origH = character.userData.originalHeight;
     const h = (typeof origH === 'number' && origH > 0.05) ? origH : 1.8;
-    character.scale.setScalar((mobile ? Math.min(1.95, viewWidth * .78) : 2.6) / h);
+    character.scale.setScalar((mobile ? Math.min(2.5, viewWidth * .95) : 2.6) / h);
     if (shadow) shadow.scale.set(mobile ? .60 : .87, mobile ? .14 : .20, 1);
   }
   measureMobileLayout();
